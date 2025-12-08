@@ -25,3 +25,6 @@ Thumbs.db
 
 # VSCode
 .vscode/
+
+# Poetry
+poetry.lock

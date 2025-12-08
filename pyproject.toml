@@ -1,0 +1,23 @@
+[project]
+name = "teledigest"
+version = "0.0.1"
+description = ""
+authors = [{ name = "Igor Opaniuk", email = "igor.opaniuk@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "telethon (>=1.42.0,<2.0.0)",
+    "python-dotenv (>=1.2.1,<2.0.0)",
+    "openai (>=2.9.0,<3.0.0)",
+    "sqlite-utils (>=3.39,<4.0)",
+]
+
+[tool.poetry]
+packages = [{ include = "teledigest", from = "src" }]
+
+[tool.poetry.scripts]
+teledigest = "teledigest.bot:main"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

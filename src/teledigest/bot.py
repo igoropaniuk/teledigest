@@ -587,7 +587,7 @@ async def summary_scheduler():
 # ==========================
 # Main
 # ==========================
-async def main():
+async def _run():
     init_db()
     log.info("Starting user & bot clients...")
     log.info("Channels to scrape (user account): %s", ", ".join(CHANNELS))
@@ -610,8 +610,8 @@ async def main():
     )
 
 
-if __name__ == "__main__":
+def main():
     try:
-        asyncio.run(main())
+        asyncio.run(_run())
     except KeyboardInterrupt:
         log.info("Shutting down via KeyboardInterrupt.")
