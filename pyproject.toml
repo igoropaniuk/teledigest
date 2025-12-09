@@ -16,7 +16,7 @@ dependencies = [
 packages = [{ include = "teledigest", from = "src" }]
 
 [tool.poetry.scripts]
-teledigest = "teledigest.bot:main"
+teledigest = "teledigest.main:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
