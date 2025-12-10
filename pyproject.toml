@@ -23,13 +23,11 @@ teledigest = "teledigest.main:main"
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[dependency-groups]
-dev = [
-    "black (>=25.12.0,<26.0.0)",
-    "isort (>=7.0.0,<8.0.0)",
-    "mypy (>=1.19.0,<2.0.0)",
-    "ruff (>=0.14.8,<0.15.0)"
-]
+[tool.poetry.group.dev.dependencies]
+black = ">=25.12.0,<26.0.0"
+isort = ">=7.0.0,<8.0.0"
+mypy = ">=1.19.0,<2.0.0"
+ruff = ">=0.14.8,<0.15.0"
 
 [tool.mypy]
 python_version = "3.10"
