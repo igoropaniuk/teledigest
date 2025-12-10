@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import datetime as dt
 import sqlite3
-from .config import DB_PATH, log
+from .config import get_config, log
 
 
 def init_db():
-    log.info("Initializing SQLite database at %s", DB_PATH)
-    conn = sqlite3.connect(DB_PATH)
+    db_path = get_config().storage.db_path
+    log.info("Initializing SQLite database at %s", db_path)
+    conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
     # Main table: one row per message
@@ -48,7 +49,7 @@ def save_message(msg_id: str, channel: str, date: dt.datetime, text: str):
         return
     iso = date.isoformat()
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(get_config().storage.db_path)
     cur = conn.cursor()
     # main table (id is unique)
     cur.execute(
@@ -83,7 +84,7 @@ def get_messages_for_range(start: dt.datetime, end: dt.datetime, limit: int | No
     start_iso = start.isoformat()
     end_iso = end.isoformat()
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(get_config().storage.db_path)
     cur = conn.cursor()
 
     sql = """
@@ -109,6 +110,22 @@ def get_messages_for_day(day: dt.date, limit: int | None = None):
     end = dt.datetime.combine(day, dt.time.max)
     return get_messages_for_range(start, end, limit)
 
+def build_fts_query() -> str:
+    """
+    Convert a list of keywords into a single FTS5 MATCH query.
+    Example: ["war", "offensive", "drone*"] → "war OR offensive OR drone*"
+    """
+    cfg = get_config()
+    kws = cfg.storage.rag_keywords
+
+    # Escape or validate if needed — FTS5 wildcard patterns are OK as-is.
+    parts = [kw for kw in kws if kw]
+
+    if not parts:
+        raise RuntimeError("No RAG keywords configured")
+
+    # Join with OR operator
+    return " OR ".join(parts)
 
 def get_relevant_messages_for_range(
     start: dt.datetime,
@@ -123,42 +140,9 @@ def get_relevant_messages_for_range(
     end_iso = end.isoformat()
 
     # Query tuned for 'important news'
-    query = (
-        # 🇺🇦 Ukrainian - war, politics
-        "війна OR наступ* OR контрнаступ* OR фронт OR лінія OR оборон* "
-        "OR штурм* OR артилер* OR обстріл* OR удар* OR ракета* OR безпілотн* "
-        "OR дрон* OR ППО OR мобілізац* OR призов* OR резерв* OR втрат* "
-        "OR збройн* OR ЗСУ OR Сили OR Оборони OR Генштаб OR Міноборони "
-        "OR санкц* OR економік* OR енергетик* OR ринок* OR бюджет* "
-        "OR НАТО OR ЄС OR Європейськ* OR допомог* OR підтримк* "
-        "OR переговор* OR дипломат* "
+    query = build_fts_query()
 
-        "OR Зеленськ* OR Умеров OR Умєров "
-
-        # 🇷🇺 Russian - war, politics
-        "OR войн* OR наступлен* OR контрнаступ* OR фронт OR линия "
-        "OR оборон* OR штурм* OR артилл* OR обстрел* OR удар* OR ракет* "
-        "OR беспилотн* OR дрон* OR ПВО OR мобилизац* OR призыв OR резерв* "
-        "OR потерь OR армия OR ВСУ OR Минобороны "
-        "OR санкц* OR экономик* OR энергетик* OR бюджет* OR рынок* "
-        "OR НАТО OR ЕС OR Европейск* OR помощ* OR поддержк* "
-        "OR переговор* OR дипломат* "
-
-        "OR Зеленск* OR Умеров "
-
-        # 🇬🇧 English - war, geopolitics
-        "OR war OR offensive OR counteroffensive OR front OR frontline "
-        "OR defense OR assault OR artillery OR shell* OR strike* OR attack* "
-        "OR missile* OR drone* OR UAV OR air OR defense OR mobilization "
-        "OR draft OR reserve OR casualties OR military OR armed OR forces "
-        "OR sanctions OR economy OR energy OR market OR budget "
-        "OR NATO OR EU OR European OR aid OR support "
-        "OR negotiations OR diplomacy "
-
-        "OR Zelensky OR Zelenskiy OR Zelenskyy OR Umerov"
-    )
-
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(get_config().storage.db_path)
     cur = conn.cursor()
 
     try:

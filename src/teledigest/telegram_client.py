@@ -5,27 +5,18 @@ from telethon import TelegramClient, events
 from telethon.errors import RPCError
 from telethon.tl.functions.channels import JoinChannelRequest
 
-from .config import (
-    TG_API_ID,
-    TG_API_HASH,
-    TG_BOT_TOKEN,
-    CHANNELS,
-    log,
-    TG_ALLOWED_USER_IDS,
-    TG_ALLOWED_USERNAMES,
-)
+from .config import log, get_config
 from .db import save_message, get_relevant_messages_last_24h, get_messages_last_24h
 from .llm import llm_summarize, build_prompt
 
-user_client = TelegramClient("user_session", TG_API_ID, TG_API_HASH)
-bot_client = TelegramClient("bot_session", TG_API_ID, TG_API_HASH)
+user_client: TelegramClient | None = None
+bot_client: TelegramClient | None = None
 
 # We'll store numeric chat IDs of channels we care about
 scraped_chat_ids = set()
 chat_id_to_name = {}
 
 
-@user_client.on(events.NewMessage)
 async def channel_message_handler(event):
     """
     Handles all new messages, but only stores those from scraped_chat_ids.
@@ -46,8 +37,21 @@ async def channel_message_handler(event):
 
 
 async def is_user_allowed(event) -> bool:
+    cfg = get_config()
+    allowed_user_names = set()
+    allowed_user_ids = set()
+
+    for item in [x.strip() for x in cfg.bot.allowed_users_raw.split(",") if x.strip()]:
+        if item.startswith("@"):
+            allowed_user_names.add(item.lstrip("@").lower())
+        else:
+            try:
+                allowed_user_ids.add(int(item))
+            except ValueError:
+                log.warning("Invalid TG_ALLOWED_USERS_RAW entry (ignored): %s", item)
+
     # If no restriction configured, allow everyone
-    if not TG_ALLOWED_USER_IDS and not TG_ALLOWED_USERNAMES:
+    if not allowed_user_ids and not allowed_user_names:
         return True
 
     sender = await event.get_sender()
@@ -55,15 +59,14 @@ async def is_user_allowed(event) -> bool:
     username = getattr(sender, "username", None)
     username_norm = username.lower() if username else None
 
-    if user_id in TG_ALLOWED_USER_IDS:
+    if user_id in allowed_user_ids:
         return True
-    if username_norm and username_norm in TG_ALLOWED_USERNAMES:
+    if username_norm and username_norm in allowed_user_names:
         return True
 
     return False
 
 
-@bot_client.on(events.NewMessage(pattern=r"^/ping$"))
 async def ping_command(event):
     # permissions
     if not await is_user_allowed(event):
@@ -75,7 +78,6 @@ async def ping_command(event):
     await event.reply("pong")
 
 
-@bot_client.on(events.NewMessage(pattern=r"^/today$"))
 async def today_command(event):
     # permissions check if you added one
     if not await is_user_allowed(event):
@@ -95,7 +97,6 @@ async def today_command(event):
         await event.reply("No messages available for the last 24 hours.")
 
 
-@bot_client.on(events.NewMessage(pattern=r"^/status$"))
 async def status_command(event):
     # permissions
     if not await is_user_allowed(event):
@@ -131,7 +132,9 @@ async def ensure_joined_and_resolve_channels():
     scraped_chat_ids = set()
     chat_id_to_name = {}
 
-    for ch in CHANNELS:
+    cfg = get_config()
+
+    for ch in cfg.bot.channels:
         try:
             # Resolve entity
             ent = await user_client.get_entity(ch)
@@ -158,10 +161,28 @@ async def ensure_joined_and_resolve_channels():
         except Exception as e:
             log.warning("User account cannot resolve %s: %s", ch, e)
 
+async def create_clients():
+    global user_client, bot_client
+
+    if user_client is not None and bot_client is not None:
+        return
+
+    cfg = get_config()
+
+    user_client = TelegramClient("user_session", cfg.telegram.api_id, cfg.telegram.api_hash)
+    bot_client = TelegramClient("bot_session", cfg.telegram.api_id, cfg.telegram.api_hash)
+
+    bot_client.add_event_handler(status_command, events.NewMessage(pattern=r"^/status$"))
+    bot_client.add_event_handler(today_command, events.NewMessage(pattern=r"^/today$"))
+    bot_client.add_event_handler(ping_command, events.NewMessage(pattern=r"^/ping$"))
+
+    user_client.add_event_handler(channel_message_handler, events.NewMessage)
+
 
 async def start_clients():
+    cfg = get_config()
     log.info("Starting user & bot clients...")
-    log.info("Channels to scrape (user account): %s", ", ".join(CHANNELS))
+    log.info("Channels to scrape (user account): %s", ", ".join(cfg.bot.channels))
 
     bot_client.on(events.NewMessage(pattern=r"^/ping$"))
     # 1. Start user client (you will log in with your phone on first run)
@@ -170,7 +191,7 @@ async def start_clients():
     await ensure_joined_and_resolve_channels()
 
     # 2. Start bot client
-    await bot_client.start(bot_token=TG_BOT_TOKEN)
+    await bot_client.start(bot_token=cfg.telegram.bot_token)
     log.info("Bot client started (logged in as bot).")
 
 
