@@ -28,3 +28,12 @@ Thumbs.db
 
 # Poetry
 poetry.lock
+
+# Ruff cache
+.ruff_cache/
+
+# Mypy cache
+.mypy_cache/
+
+# Black cache (pytest-black)
+.black/
