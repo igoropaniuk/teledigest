@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-import openai
+from openai import OpenAI
 
 from .config import get_config, log
 
@@ -66,14 +66,14 @@ def strip_markdown_fence(text: str) -> str:
     return "\n".join(lines).strip()
 
 
-def llm_summarize(day: dt.date, messages):
-    openai.api_key = get_config().llm.token
+def llm_summarize(day: dt.date, messages) -> str:
+    client = OpenAI(api_key=get_config().llm.token)
 
     system, user = build_prompt(day, messages)
     log.info("Calling OpenAI for summary (%d messages)...", len(messages))
 
     try:
-        response = openai.ChatCompletion.create(  # type: ignore[attr-defined]
+        response = client.chat.completions.create(
             model=get_config().llm.model,
             messages=[
                 {"role": "system", "content": system},
@@ -81,10 +81,15 @@ def llm_summarize(day: dt.date, messages):
             ],
             temperature=0.4,
         )
-        summary = response.choices[0].message["content"].strip()
+
+        content = response.choices[0].message.content
+        assert content is not None
+        summary = content.strip()
         summary = strip_markdown_fence(summary)
+
         log.info("Received summary from OpenAI (%d chars).", len(summary))
         return summary
+
     except Exception as e:
         log.exception("OpenAI API error: %s", e)
         return f"Failed to generate AI summary for {day.isoformat()}.\n\n" f"Error: {e}"
