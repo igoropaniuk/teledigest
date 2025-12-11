@@ -4,3 +4,4 @@ set -euo pipefail
 poetry run ruff check src/
 poetry run black --check .
 poetry run mypy
+poetry run pytest -q

@@ -29,6 +29,7 @@ isort = ">=7.0.0,<8.0.0"
 mypy = ">=1.19.0,<2.0.0"
 ruff = ">=0.14.8,<0.15.0"
 pre-commit = "^4.5.0"
+pytest = "^9.0.2"
 
 [tool.mypy]
 python_version = "3.10"
