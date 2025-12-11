@@ -155,6 +155,12 @@ This separation ensures correct access to the Telegram channels.
 poetry install
 ```
 
+Install pre-commit hook for code sanity checks:
+
+```bash
+poetry run pre-commit install
+```
+
 ### Run the bot
 
 ``` bash
