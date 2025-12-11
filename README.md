@@ -73,7 +73,7 @@ cd teledigest
 
 ## Obtaining Telegram Application Credentials
 
-1. Go to **https://my.telegram.org**
+1. Go to <https://my.telegram.org>
 2. Log in with your phone number
 3. Open **API Development Tools**
 4. Create an application
@@ -84,7 +84,7 @@ messages.
 
 ## Obtaining an OpenAI Token
 
-1. Visit **https://platform.openai.com/api-keys**
+1. Visit <https://platform.openai.com/api-keys>
 2. Create a new API key
 3. Copy the token - you will need it for the
    configuration file
@@ -219,7 +219,7 @@ We follow a **clean history** approach with **fast‑forward merges**.
 ### Commit Message Style
 
 This project uses the **Conventional Commits** specification:
-https://www.conventionalcommits.org/en/v1.0.0/
+<https://www.conventionalcommits.org/en/v1.0.0/>
 
 Example commit messages:
 
