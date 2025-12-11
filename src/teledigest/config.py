@@ -73,7 +73,7 @@ def _default_config_path() -> Path:
     Example:
       - Linux:  ~/.config/teledigest/config.toml
       - macOS:  ~/Library/Application Support/teledigest/config.toml
-      - Win:    %APPDATA%\teledigest\config.toml
+      - Win:    %APPDATA%\\teledigest\\config.toml
     """
     config_dir = Path(user_config_dir(APP_NAME, APP_AUTHOR))
     return config_dir / "config.toml"
