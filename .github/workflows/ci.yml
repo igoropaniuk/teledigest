@@ -48,6 +48,6 @@ jobs:
 
       - name: Run CI checks (black, ruff, mypy, pytest)
         run: |
-          ./scripts/ci-check
+          poetry run bash ./scripts/ci-check
         shell: bash
 

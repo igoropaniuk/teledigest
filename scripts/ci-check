@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-poetry run ruff check src/
-poetry run black --check .
-poetry run mypy
-poetry run pytest -q
+ruff check src/
+black --check .
+mypy
+pytest -q
