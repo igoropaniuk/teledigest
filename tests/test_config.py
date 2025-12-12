@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Dict, Any
-
 import tomllib
+from pathlib import Path
+from typing import Any, Dict
+
 import pytest
 
 from teledigest import config

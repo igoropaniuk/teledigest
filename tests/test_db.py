@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import datetime as dt
+import sqlite3
 from pathlib import Path
 from typing import List
 
 import pytest
-import sqlite3
 
-from teledigest import db
 from teledigest import config as cfg
+from teledigest import db
 
 
 def _make_app_config(

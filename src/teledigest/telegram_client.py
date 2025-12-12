@@ -1,3 +1,4 @@
+# isort: skip_file
 import asyncio
 import datetime as dt
 from pathlib import Path
@@ -5,7 +6,7 @@ from pathlib import Path
 from telethon import TelegramClient, events
 from telethon.tl.functions.channels import JoinChannelRequest
 
-from .config import get_config, log, AppConfig
+from .config import AppConfig, get_config, log
 from .db import get_messages_last_24h, get_relevant_messages_last_24h, save_message
 from .llm import build_prompt, llm_summarize
 
