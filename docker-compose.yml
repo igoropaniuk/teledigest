@@ -1,0 +1,12 @@
+services:
+  teledigest:
+    build: .
+    image: teledigest:latest
+    command: ["--config", "/config/teledigest.conf"]
+    volumes:
+      - ./teledigest.conf:/config/teledigest.conf:ro
+      - ./data:/data
+    user: "${GID:-1000}:${UID:-1000}"
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
