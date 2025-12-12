@@ -4,4 +4,5 @@ set -euo pipefail
 ruff check src/
 black --check .
 mypy
+poetry run isort --check-only .
 pytest -q
