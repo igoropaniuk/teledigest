@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 import asyncio
+import sys
+import traceback
 from pathlib import Path
 
 from .config import init_config, log
@@ -18,6 +20,12 @@ def parse_args() -> argparse.Namespace:
         "--config",
         type=Path,
         help="Path to config.toml (overrides default location)",
+    )
+    parser.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        help="Show full traceback on errors",
     )
     return parser.parse_args()
 
@@ -37,9 +45,20 @@ async def _run(config_path: Path | None) -> None:
     )
 
 
-def main():
+def main() -> int:
+    args = parse_args()
+
     try:
-        args = parse_args()
         asyncio.run(_run(args.config))
+        return 0
     except KeyboardInterrupt:
-        log.info("Shutting down via KeyboardInterrupt.")
+        log.info("Shutting down via KeyboardInterrupt")
+        return 130
+    except Exception as e:
+        if getattr(args, "debug", False):
+            traceback.print_exc()
+        else:
+            # Keep stderr clean by default (no full backtrace)
+            # and provide user-friendly output
+            print(f"Error: {str(e)}", file=sys.stderr)
+        return 1
