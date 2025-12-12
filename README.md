@@ -197,6 +197,152 @@ poetry run black  .
 poetry run isort .
 ```
 
+## Running with Docker
+
+The bot can be run fully containerized using Docker.
+Configuration and persistent data (Telegram sessions + SQLite database) are mounted
+from the host.
+
+Docker is recommended for long-running or production deployments.
+
+### Requirements
+
+- Docker 20+
+- Docker Compose v2 (`docker compose`)
+
+### Configuration
+
+Create a config file on the host, for example `teledigest.conf`:
+
+```toml
+[telegram]
+api_id = 123456
+api_hash = "YOUR_API_HASH"
+bot_token = "YOUR_BOT_TOKEN"
+sessions_dir = "/data"
+
+[storage]
+db_path = "/data/messages_fts.db"
+
+[logging]
+level = "INFO"
+```
+
+Always use absolute paths (`/data`) inside the container for persistent files.
+
+Create a directory for persistent data:
+
+```bash
+mkdir -p data
+```
+
+This directory stores:
+
+- Telegram `.session` files
+- SQLite database for scraped messages
+
+### Option A: Docker Compose (recommended)
+
+#### docker-compose.yml
+
+```yaml
+services:
+  teledigest:
+    build: .
+    image: teledigest:latest
+    command: ["--config", "/config/teledigest.conf"]
+    volumes:
+      - ./teledigest.conf:/config/teledigest.conf:ro
+      - ./data:/data
+    user: "${GID:-1000}:${UID:-1000}"
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+```
+
+#### Start the bot
+
+```bash
+docker compose up --build
+```
+
+You can also provide timezone configuration before running docker compose:
+
+```bash
+export TZ=$(cat /etc/timezone)
+docker compose up --build
+```
+
+Run in background:
+
+```bash
+docker compose up -d
+```
+
+View logs:
+
+```bash
+docker compose logs -f
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+### Option B: Plain Docker (no Compose)
+
+Build the image:
+
+```bash
+docker build -t teledigest .
+```
+
+Run the container:
+
+```bash
+export TZ=$(cat /etc/timezone)
+docker run -e TZ=$TZ --rm \
+   --user "$(id -u):$(id -g)" \
+   -v "$(pwd)/teledigest.conf:/config/teledigest.conf:ro" \
+   -v "$(pwd)/data:/data" teledigest:latest
+```
+
+### Permissions model
+
+The container runs using the same UID/GID as the host user.
+This avoids permission issues with bind-mounted volumes and prevents errors
+such as:
+
+- Permission denied
+- SQLite readonly database errors
+
+If needed, ensure the data directory is writable:
+
+```bash
+chmod -R a+rwX data
+```
+
+## First run & authentication
+
+On the first run, Telethon may prompt for a login code.
+Session files will be created in `./data`.
+
+To perform authentication only and exit:
+
+```bash
+teledigest --config teledigest.conf --auth
+```
+
+Docker:
+
+```bash
+docker compose run --rm teledigest --auth
+```
+
+Do not delete the `data/` directory unless you want to re-authenticate.
+
 ## Contributing
 
 We follow a **clean history** approach with **fast‑forward merges**.
