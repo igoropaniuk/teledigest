@@ -17,6 +17,7 @@ class TelegramConfig:
     api_id: int
     api_hash: str
     bot_token: str
+    sessions_dir: Path = Path("data")
 
 
 _DEFAULT_SYSTEM_PROMPT = """You are a helpful assistant that summarizes Telegram messages into a concise digest."""
@@ -123,6 +124,7 @@ def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
             api_id=int(tg_raw["api_id"]),
             api_hash=str(tg_raw["api_hash"]),
             bot_token=str(tg_raw["bot_token"]),
+            sessions_dir=Path(tg_raw.get("sessions_dir", "data")),
         )
     except KeyError as e:
         raise KeyError(f"Missing required [telegram] field in config: {e!s}") from e

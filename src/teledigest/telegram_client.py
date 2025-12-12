@@ -1,10 +1,11 @@
 import asyncio
 import datetime as dt
+from pathlib import Path
 
 from telethon import TelegramClient, events
 from telethon.tl.functions.channels import JoinChannelRequest
 
-from .config import get_config, log
+from .config import get_config, log, AppConfig
 from .db import get_messages_last_24h, get_relevant_messages_last_24h, save_message
 from .llm import build_prompt, llm_summarize
 
@@ -169,6 +170,20 @@ async def ensure_joined_and_resolve_channels():
             log.warning("User account cannot resolve %s: %s", ch, e)
 
 
+def _session_paths(cfg: AppConfig) -> tuple[Path, Path]:
+    """
+    Return filesystem paths for user & bot session files,
+    retrieved from the config file
+    """
+    sessions_dir = cfg.telegram.sessions_dir
+
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+
+    user_session = sessions_dir / "user.session"
+    bot_session = sessions_dir / "bot.session"
+    return user_session, bot_session
+
+
 async def create_clients():
     global user_client, bot_client
 
@@ -177,11 +192,15 @@ async def create_clients():
 
     cfg = get_config()
 
+    user_session_path, bot_session_path = _session_paths(cfg)
+
+    log.info(f"Using session paths: user={user_session_path}, bot={bot_session_path}")
+
     user_client = TelegramClient(
-        "user_session", cfg.telegram.api_id, cfg.telegram.api_hash
+        str(user_session_path), cfg.telegram.api_id, cfg.telegram.api_hash
     )
     bot_client = TelegramClient(
-        "bot_session", cfg.telegram.api_id, cfg.telegram.api_hash
+        str(bot_session_path), cfg.telegram.api_id, cfg.telegram.api_hash
     )
 
     bot_client.add_event_handler(

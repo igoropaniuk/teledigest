@@ -17,7 +17,9 @@ def _make_app_config(
     """
     Helper to build a minimal AppConfig instance that is sufficient for db.py.
     """
-    telegram = cfg.TelegramConfig(api_id=1, api_hash="hash", bot_token="token")
+    telegram = cfg.TelegramConfig(
+        api_id=1, api_hash="hash", bot_token="token", sessions_dir=Path("testdata")
+    )
     bot = cfg.BotConfig(channels=["@c1"], summary_target="@digest")
     llm = cfg.LLMConfig(
         model="gpt-4.1",
