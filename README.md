@@ -1,5 +1,8 @@
 # Teledigest
 
+[![License](https://img.shields.io/badge/licence-MIT-green)](https://opensource.org/license/mit)
+[![Build on push](https://github.com/igoropaniuk/teledigest/actions/workflows/ci.yml/badge.svg)](https://github.com/igoropaniuk/teledigest/actions/workflows/ci.yml/badge.svg)
+
 Teledigest is a Telegram digest bot that fetches posts from
 configured Telegram channels, summarizes them using OpenAI models, and
 publishes digests to a target channel.
