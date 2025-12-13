@@ -40,6 +40,7 @@ class BotConfig:
     summary_target: str
     time_zone: str = "Europe/Warsaw"
     summary_hour: int = 21
+    summary_minute: int = 0
     allowed_users_raw: str = ""  # e.g. "@user1,12345678"
 
 
@@ -139,12 +140,18 @@ def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
         channels=[str(c).strip() for c in channels],
         summary_target=str(bot_raw.get("summary_target", "")).strip(),
         summary_hour=int(bot_raw.get("summary_hour", 21)),
+        summary_minute=int(bot_raw.get("summary_minute", 0)),
         allowed_users_raw=str(bot_raw.get("allowed_users", "")),
         time_zone=str(bot_raw.get("time_zone", "Europe/Warsaw")),
     )
 
     if not bot.summary_target:
         raise ValueError("Config [bot].summary_target is required.")
+
+    if not (0 <= bot.summary_hour <= 23):
+        raise ValueError("Config [bot].summary_hour must be between 0 and 23.")
+    if not (0 <= bot.summary_minute <= 59):
+        raise ValueError("Config [bot].summary_minute must be between 0 and 59.")
 
     # --- storage ---
     storage_raw = raw.get("storage") or {}

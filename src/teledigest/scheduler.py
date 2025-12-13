@@ -1,5 +1,6 @@
 import asyncio
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 from telethon.errors import RPCError
 
@@ -15,15 +16,22 @@ async def summary_scheduler():
     bot_client = get_bot_client()
     summary_target = cfg.bot.summary_target
     summary_hour = cfg.bot.summary_hour
+    summary_minute = cfg.bot.summary_minute
+    tz = ZoneInfo(cfg.bot.time_zone)
     log.info("Summary target channel (bot will post here): %s", summary_target)
-    log.info("Scheduler started - daily summary at %02d:00", summary_hour)
+    log.info(
+        "Scheduler started - daily summary at %02d:%02d (%s)",
+        summary_hour,
+        summary_minute,
+        cfg.bot.time_zone,
+    )
     last_run_for = None
 
     while True:
-        now = dt.datetime.now()
+        now = dt.datetime.now(tz)
         today = now.date()
 
-        if now.hour == summary_hour and now.minute == 0:
+        if now.hour == summary_hour and now.minute == summary_minute:
             if last_run_for == today:
                 await asyncio.sleep(60)
                 continue
