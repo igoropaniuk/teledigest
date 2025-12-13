@@ -29,7 +29,7 @@ _DEFAULT_USER_PROMPT = (
 @dataclass
 class LLMConfig:
     model: str
-    token: str
+    api_key: str
     system_prompt: str
     user_prompt: str
 
@@ -164,14 +164,14 @@ def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
     llm_raw = raw.get("llm") or {}
     prompts_raw = llm_raw.get("prompts") or {}
     llm = LLMConfig(
-        token=str(llm_raw.get("token", "")),
+        api_key=str(llm_raw.get("api_key", "")),
         model=str(llm_raw.get("model", "gpt-5.1")),
         system_prompt=str(prompts_raw.get("system", _DEFAULT_SYSTEM_PROMPT)),
         user_prompt=str(prompts_raw.get("user", _DEFAULT_USER_PROMPT)),
     )
 
-    if not llm.token:
-        raise ValueError("Config [llm].token is required.")
+    if not llm.api_key:
+        raise ValueError("Config [llm].api_key is required.")
 
     # --- logging ---
     logging_raw = raw.get("logging") or {}

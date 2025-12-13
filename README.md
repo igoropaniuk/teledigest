@@ -85,11 +85,11 @@ cd teledigest
 These are required for the Telegram client that fetches channel
 messages.
 
-## Obtaining an OpenAI Token
+## Obtaining an OpenAI API Key
 
 1. Visit <https://platform.openai.com/api-keys>
 2. Create a new API key
-3. Copy the token - you will need it for the
+3. Copy the api key - you will need it for the
    configuration file
 
 ## Preparing the TOML configuration

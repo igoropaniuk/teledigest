@@ -25,7 +25,7 @@ def _make_minimal_raw() -> Dict[str, Any]:
             "time_zone": "Europe/Warsaw",
         },
         "llm": {
-            "token": "sk-test",
+            "api_key": "sk-test",
             # intentionally omit "model" to test default
             # prompts will be omitted in some tests to use defaults
         },
@@ -51,14 +51,14 @@ def test_load_toml_success(tmp_path: Path) -> None:
         summary_target = "@digest"
 
         [llm]
-        token = "sk-test"
+        api_key = "sk-test"
         """
     )
 
     data = config._load_toml(cfg_path)
     assert data["telegram"]["api_id"] == 1
     assert data["bot"]["channels"] == ["@ch"]
-    assert data["llm"]["token"] == "sk-test"
+    assert data["llm"]["api_key"] == "sk-test"
 
 
 def test_load_toml_missing_file_raises() -> None:
@@ -95,7 +95,7 @@ def test_parse_app_config_valid_minimal_defaults() -> None:
     assert app_cfg.storage.rag_keywords == []
 
     # llm
-    assert app_cfg.llm.token == "sk-test"
+    assert app_cfg.llm.api_key == "sk-test"
     # model default from config._DEFAULT_* if not provided
     assert app_cfg.llm.model == "gpt-5.1"
     # prompts default to builtin prompts if [llm.prompts] missing
@@ -181,14 +181,14 @@ def test_parse_app_config_bot_summary_target_required() -> None:
     assert "Config [bot].summary_target is required." in str(exc.value)
 
 
-def test_parse_app_config_llm_token_required() -> None:
+def test_parse_app_config_llm_api_key_required() -> None:
     raw = _make_minimal_raw()
-    raw["llm"]["token"] = ""
+    raw["llm"]["api_key"] = ""
 
     with pytest.raises(ValueError) as exc:
         config._parse_app_config(raw)
 
-    assert "Config [llm].token is required." in str(exc.value)
+    assert "Config [llm].api_key is required." in str(exc.value)
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +251,7 @@ def test_init_config_and_get_config_roundtrip(
         time_zone = "Europe/Warsaw"
 
         [llm]
-        token = "sk-42"
+        api_key = "sk-42"
 
         [storage]
         db_path = "messages_fts.db"
@@ -273,7 +273,7 @@ def test_init_config_and_get_config_roundtrip(
     # basic sanity checks
     assert app_cfg.telegram.api_id == 42
     assert app_cfg.bot.channels == ["@c1", "@c2"]
-    assert app_cfg.llm.token == "sk-42"
+    assert app_cfg.llm.api_key == "sk-42"
     assert app_cfg.storage.rag_keywords == ["k1", "k2"]
     assert app_cfg.logging.level == "DEBUG"
 

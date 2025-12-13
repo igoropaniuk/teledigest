@@ -23,7 +23,7 @@ def _make_app_config(
     bot = cfg.BotConfig(channels=["@c1"], summary_target="@digest")
     llm = cfg.LLMConfig(
         model="gpt-4.1",
-        token="sk-test",
+        api_key="sk-test",
         system_prompt="",
         user_prompt="",
     )

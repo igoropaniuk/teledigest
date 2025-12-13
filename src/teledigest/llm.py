@@ -67,7 +67,7 @@ def strip_markdown_fence(text: str) -> str:
 
 
 def llm_summarize(day: dt.date, messages) -> str:
-    client = OpenAI(api_key=get_config().llm.token)
+    client = OpenAI(api_key=get_config().llm.api_key)
 
     system, user = build_prompt(day, messages)
     log.info("Calling OpenAI for summary (%d messages)...", len(messages))
