@@ -2,6 +2,7 @@
 import asyncio
 import datetime as dt
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from telethon import TelegramClient, events
 from telethon.tl.functions.channels import JoinChannelRequest
@@ -16,6 +17,13 @@ bot_client: TelegramClient | None = None
 # We'll store numeric chat IDs of channels we care about
 scraped_chat_ids: set[int] = set()
 chat_id_to_name: dict[int, str] = {}
+
+SUPPORTED_COMMANDS: dict[str, str] = {
+    "/ping": "Health check (bot replies with 'pong')",
+    "/today": "Generate a digest now from the last 24 hours of messages",
+    "/status": "Show bot status and configuration summary",
+    "/help": "Show this help message",
+}
 
 
 async def channel_message_handler(event):
@@ -79,6 +87,19 @@ async def ping_command(event):
     await event.reply("pong")
 
 
+async def help_command(event):
+    if not await is_user_allowed(event):
+        log.info("/help denied for user_id=%s", event.sender_id)
+        await event.reply("You are not allowed to use this command.")
+        return
+
+    lines = ["<b>Supported commands</b>", ""]
+    for cmd, desc in SUPPORTED_COMMANDS.items():
+        lines.append(f"<code>{cmd}</code> — {desc}")
+
+    await event.reply("\n".join(lines), parse_mode="html")
+
+
 async def today_command(event):
     # permissions check if you added one
     if not await is_user_allowed(event):
@@ -109,26 +130,46 @@ async def status_command(event):
         await event.reply("You are not allowed to use this command.")
         return
 
-    day = dt.date.today()
+    cfg = get_config()
+    tz = ZoneInfo(cfg.bot.time_zone)
+    day = dt.datetime.now(tz).date()
+
     log.info(
-        "/check requested by %s for rolling last 24h (labelled as %s)",
+        "/status requested by %s (rolling last 24h, labelled as %s in %s)",
         event.sender_id,
         day.isoformat(),
+        cfg.bot.time_zone,
     )
 
-    messages = get_relevant_messages_last_24h(max_docs=200)
-    all_parsed = get_messages_last_24h()
+    relevant = get_relevant_messages_last_24h(max_docs=200)
+    parsed = get_messages_last_24h()
 
-    if messages:
-        system, user = build_prompt(day, messages)
-        await event.reply(
-            f"Relevant messages (last 24h): {len(messages)}, "
-            f"parsed (last 24h): {len(all_parsed)}, "
-            f"prompt: {len(user)} symbols"
-        )
+    # A light sanity check for prompt size (useful for troubleshooting)
+    prompt_chars = 0
+    if relevant:
+        _, user_prompt = build_prompt(day, relevant)
+        prompt_chars = len(user_prompt)
 
+    digest_time = f"{cfg.bot.summary_hour:02d}:{cfg.bot.summary_minute:02d}"
+
+    channels_list = "\n".join([f"• <code>{c}</code>" for c in cfg.bot.channels])
+
+    text = (
+        "<b>Teledigest status</b>\n\n"
+        f"<b>Parsed messages (last 24h, UTC):</b> <code>{len(parsed)}</code>\n"
+        f"<b>Relevant messages (last 24h, UTC):</b> <code>{len(relevant)}</code>\n"
+        f"<b>Planned digest post time:</b> <code>{digest_time}</code> (<code>{cfg.bot.time_zone}</code>)\n"
+        f"<b>LLM model:</b> <code>{cfg.llm.model}</code>\n"
+        f"<b>Target channel:</b> <code>{cfg.bot.summary_target}</code>\n"
+        f"<b>Scrape channels:</b>\n{channels_list}\n"
+    )
+
+    if relevant:
+        text += f"\n<b>Current prompt size:</b> <code>{prompt_chars}</code> chars"
     else:
-        await event.reply("No messages available for the last 24 hours.")
+        text += "\n\n<i>No relevant messages found in the last 24 hours.</i>"
+
+    await event.reply(text, parse_mode="html")
 
 
 async def ensure_joined_and_resolve_channels():
@@ -207,6 +248,7 @@ async def create_clients():
     bot_client.add_event_handler(
         status_command, events.NewMessage(pattern=r"^/status$")
     )
+    bot_client.add_event_handler(help_command, events.NewMessage(pattern=r"^/help$"))
     bot_client.add_event_handler(today_command, events.NewMessage(pattern=r"^/today$"))
     bot_client.add_event_handler(ping_command, events.NewMessage(pattern=r"^/ping$"))
 
