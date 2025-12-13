@@ -107,6 +107,7 @@ bot_token = "123456:ABCDEF"
 channels = ["@news", "@events"]
 summary_target = "@digest_channel"
 summary_hour = 21
+summary_minute = 0
 allowed_users = "@admin,123456789"
 
 [llm]
@@ -174,9 +175,10 @@ poetry run teledigest --config teledigest.conf
 
 | Command     | Description |
 |-------------|-------------|
-| `/status` | Shows amount of messages parsed, LLM prompt symbol count |
-| `/today`  | Immediately triggers daily digest generation |
-| `/ping`   | Returns "pong" to confirm bot responsiveness |
+| `/help`   | Lists all supported bot commands |
+| `/ping`   | Health check (bot replies with `pong`) |
+| `/status` | Shows parsed/relevant counts (last 24h), schedule, model, ... |
+| `/today`  | Immediately triggers digest generation for last 24 hours |
 
 ### Sanity checks
 
