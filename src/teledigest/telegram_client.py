@@ -1,4 +1,6 @@
 # isort: skip_file
+from __future__ import annotations
+
 import asyncio
 import datetime as dt
 from pathlib import Path
@@ -255,8 +257,15 @@ async def create_clients():
     user_client.add_event_handler(channel_message_handler, events.NewMessage)
 
 
-async def start_clients():
+async def start_clients(auth_only: bool = False) -> None:
+    """
+    Start Telegram clients.
+    If auth_only=True: authenticate client (create client session file) and return
+    without joining channels / registering the bot and its handlers.
+    """
     global user_client, bot_client
+    if user_client is None or bot_client is None:
+        raise RuntimeError("Clients not initialized — call create_clients() first.")
 
     cfg = get_config()
     log.info("Starting user & bot clients...")
@@ -265,6 +274,10 @@ async def start_clients():
     bot_client.on(events.NewMessage(pattern=r"^/ping$"))
     # 1. Start user client (you will log in with your phone on first run)
     await user_client.start()
+    if auth_only:
+        log.info("Auth-only mode: skipping channel joins and handler registration.")
+        return
+
     log.info("User client started (logged in as your account).")
     await ensure_joined_and_resolve_channels()
 
@@ -280,6 +293,21 @@ async def run_clients():
     await asyncio.gather(
         user_client.run_until_disconnected(), bot_client.run_until_disconnected()
     )
+
+
+async def disconnect_clients(auth_only: bool = False) -> None:
+    """Disconnect both Telegram clients if they were initialized."""
+    global user_client, bot_client
+
+    # Telethon's disconnect() is async.
+    tasks = []
+    if user_client:
+        tasks.append(user_client.disconnect())
+    if bot_client and not auth_only:
+        tasks.append(bot_client.disconnect())
+
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def get_bot_client() -> TelegramClient:
