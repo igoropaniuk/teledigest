@@ -340,6 +340,15 @@ To perform authentication only and exit:
 poetry run teledigest --config teledigest.conf --auth
 ```
 
+Or do this inside docker container:
+
+```bash
+docker run -it --rm --user "$(id -u):$(id -g)" \
+   -v "$(pwd)/teledigest.conf:/config/teledigest.conf:ro" \
+   -v "$(pwd)/data:/data" teledigest:latest \
+   --config /config/teledigest.conf --auth
+```
+
 Do not delete the `data/` directory unless you want to re-authenticate.
 
 ## Contributing
