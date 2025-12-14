@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# isort: skip_file
 import argparse
 import asyncio
 import sys
@@ -8,13 +9,26 @@ from pathlib import Path
 from .config import init_config, log
 from .db import init_db
 from .scheduler import summary_scheduler
-from .telegram_client import create_clients, run_clients, start_clients
+from .telegram_client import (
+    create_clients,
+    disconnect_clients,
+    run_clients,
+    start_clients,
+)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="teledigest",
         description="LLM-driven Telegram digest bot that summarizes channels",
+    )
+    parser.add_argument(
+        "--auth",
+        action="store_true",
+        help=(
+            "Authenticate Telegram user account, create user session, then exit. "
+            "Useful for one-time setup in containers."
+        ),
     )
     parser.add_argument(
         "--config",
@@ -30,13 +44,24 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-async def _run(config_path: Path | None) -> None:
+async def _run(config_path: Path | None, auth_only: bool) -> None:
     init_config(config_path)
 
-    init_db()
+    if not auth_only:
+        # The message handler writes to SQLite; initialize DB before clients can receive updates.
+        init_db()
 
     await create_clients()
-    await start_clients()
+    await start_clients(auth_only=auth_only)
+
+    if auth_only:
+        # Disconnect cleanly and exit.
+
+        await disconnect_clients()
+        log.info(
+            "Authentication completed; session files should now be present. Exiting."
+        )
+        return
 
     # Run both clients + scheduler
     await asyncio.gather(
@@ -49,7 +74,7 @@ def main() -> int:
     args = parse_args()
 
     try:
-        asyncio.run(_run(args.config))
+        asyncio.run(_run(args.config, args.auth))
         return 0
     except KeyboardInterrupt:
         log.info("Shutting down via KeyboardInterrupt")
