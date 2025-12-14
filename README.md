@@ -337,13 +337,7 @@ Session files will be created in `./data`.
 To perform authentication only and exit:
 
 ```bash
-teledigest --config teledigest.conf --auth
-```
-
-Docker:
-
-```bash
-docker compose run --rm teledigest --auth
+poetry run teledigest --config teledigest.conf --auth
 ```
 
 Do not delete the `data/` directory unless you want to re-authenticate.
