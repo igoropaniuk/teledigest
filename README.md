@@ -92,7 +92,7 @@ messages.
 3. Copy the api key - you will need it for the
    configuration file
 
-## Preparing the TOML configuration
+## Preparing the configuration file
 
 Before running the bot, create a configuration file,
 e.g. `teledigest.conf`:
@@ -140,6 +140,15 @@ the final prompt.
 **The bot must be added as an administrator to the target channel** so
 it can publish digests.
 
+Telegram Bot API doesn't permit joining channels automatically, so Teledigest
+starts a regular user session requiring two-factor authentication specifically for
+scraping channels.
+**This will require inputting the phone number and 2FA dynamic password**
+during the first run of the Teledigest.
+
+Please check [First run & authentication](#first-run--authentication) section for
+more details
+
 ## Bot Architecture
 
 Teledigest uses **two separate Telegram clients**:
@@ -147,7 +156,9 @@ Teledigest uses **two separate Telegram clients**:
 1. **Bot client** - handles incoming bot commands and posts digests
    to the target channel. Requires a correct `bot_token` to be provided.
 1. **User client** - authenticated with `api_id` and `api_hash`, used
-   to fetch posts from Telegram channels.
+   to fetch posts from Telegram channels. An additional Telegram client
+   instance was introduced to overcome the limitations of the Telegram
+   Bot API, which doesn't allow bots to join channels.
 
 This separation ensures correct access to the Telegram channels.
 
@@ -322,7 +333,7 @@ such as:
 
 - Permission denied
 - SQLite readonly database errors
-
+First run & authentication
 If needed, ensure the data directory is writable:
 
 ```bash
@@ -331,7 +342,7 @@ chmod -R a+rwX data
 
 ## First run & authentication
 
-On the first run, Telethon may prompt for a login code.
+On the first run, Telethon may prompt for your phone number and 2FA password.
 Session files will be created in `./data`.
 
 To perform authentication only and exit:
@@ -347,6 +358,26 @@ docker run -it --rm --user "$(id -u):$(id -g)" \
    -v "$(pwd)/teledigest.conf:/config/teledigest.conf:ro" \
    -v "$(pwd)/data:/data" teledigest:latest \
    --config /config/teledigest.conf --auth
+```
+
+Expect this output during initial session registration:
+
+```bash
+$ poetry run teledigest --config teledigest.conf --auth
+[INFO] teledigest - Logging configured at INFO level
+[INFO] teledigest - Using session paths: user=data/user.session, bot=data/bot.session
+[INFO] teledigest - Starting user & bot clients...
+[INFO] teledigest - Channels to scrape (user account): @channel1, @channel2
+[INFO] telethon.network.mtprotosender - Connecting to 0.0.0.0/TcpFull...
+[INFO] telethon.network.mtprotosender - Connection to 0.0.0.0/TcpFull complete!
+Please enter your phone (or bot token): +48888888888
+Please enter the code you received: 12345
+Signed in successfully as User; remember to not break the ToS!
+[INFO] teledigest - Auth-only mode: skipping channel joins and handler registration.
+[INFO] telethon.network.mtprotosender - Disconnecting from 0.0.0.0/TcpFull...
+[INFO] telethon.network.mtprotosender - Not disconnecting (already have no connection)
+[INFO] telethon.network.mtprotosender - Disconnection from 0.0.0.0/TcpFull complete!
+[INFO] teledigest - Authentication completed
 ```
 
 Do not delete the `data/` directory unless you want to re-authenticate.
