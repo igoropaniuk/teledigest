@@ -155,6 +155,7 @@ Teledigest uses **two separate Telegram clients**:
 
 1. **Bot client** - handles incoming bot commands and posts digests
    to the target channel. Requires a correct `bot_token` to be provided.
+   Always starts automatically
 1. **User client** - authenticated with `api_id` and `api_hash`, used
    to fetch posts from Telegram channels. An additional Telegram client
    instance was introduced to overcome the limitations of the Telegram
@@ -184,12 +185,13 @@ poetry run teledigest --config teledigest.conf
 
 ### Bot Commands
 
-| Command     | Description |
-|-------------|-------------|
-| `/help`   | Lists all supported bot commands |
-| `/ping`   | Health check (bot replies with `pong`) |
-| `/status` | Shows parsed/relevant counts (last 24h), schedule, model, ... |
-| `/today`  | Immediately triggers digest generation for last 24 hours |
+| Command   | Description |
+|-----------|-----------------------------------------------------------------|
+| `/auth`   | Authorize the user client so it canto access and scrape channels|
+| `/help`   | Lists all supported bot commands                                |
+| `/ping`   | Health check (bot replies with `pong`)                          |
+| `/status` | Shows parsed/relevant counts (last 24h), schedule, model, ...   |
+| `/today`  | Immediately triggers digest generation for last 24 hours        |
 
 ### Sanity checks
 
@@ -342,10 +344,55 @@ chmod -R a+rwX data
 
 ## First run & authentication
 
-On the first run, Telethon may prompt for your phone number and 2FA password.
-Session files will be created in `./data`.
+On first run, if the user session is missing:
 
-To perform authentication only and exit:
+- The bot starts normally
+- Scraping is disabled
+- `/status` explicitly shows that authorization is required
+
+### Authorizing via Telegram bot (recommended)
+
+Authorization can be performed interactively via bot chat dialog:
+
+1. `/auth`
+2. Send your phone number (`+123456789`)
+3. Send the 2FA code you receive.
+
+When you authorize the user client via the `/auth` command, the bot asks you to
+type the Telegram login code with spaces between each digit, for example:
+
+`1 2 3 4 5`
+
+This is **not** a protocol requirement, but a practical workaround for Telegram's
+security system.
+
+Telegram tries to detect situations where a login code might have been leaked or
+shared. If the code is **forwarded** or **shared** from your account and then used
+to log in from another client, Telegram may treat that as suspicious and block
+the login, even though the code itself is correct. In that case you may see a
+message similar to:
+
+> the code was entered correctly, but the login was not allowed because the code
+> was previously shared from your account.
+
+By asking you to **type the code manually with spaces**, the bot encourages a
+pattern that is clearly different from simply forwarding or copy-pasting the
+original message with the code. On the bot side, those spaces are removed
+before the code is sent to Telegram, so Telegram still receives the exact code
+it issued.
+
+In short:
+
+- You type: `1 2 3 4 5`
+- The bot converts it to: `12345`
+- This reduces the chance of Telegram treating the login as a suspicious
+  "shared code" login and blocking it.
+
+If authorization fails, repeat `/auth`.
+
+### CLI authorization (`--auth`)
+
+It's possible to perform authentication via CLI and then exit:
 
 ```bash
 poetry run teledigest --config teledigest.conf --auth
@@ -380,7 +427,56 @@ Signed in successfully as User; remember to not break the ToS!
 [INFO] teledigest - Authentication completed
 ```
 
+Then you can restart the bot without `--auth` param and it will use existing
+sessions files.
+
 Do not delete the `data/` directory unless you want to re-authenticate.
+
+### Why bot-based authorization is preferred over CLI auth (especially in Docker)
+
+Even CLI auth mode (`teledigest --auth`) still exists and works fine for local
+development on your machine, it is **not recommended** as the primary method
+in Docker / containerized environments.
+
+There are a few reasons for that:
+
+1. **Docker often has no usable stdin**
+
+   The boot CLI-style `--auth` expects to read the phone number,
+   login code and (optional) 2FA password from `stdin` (your terminal). In a
+   typical Docker setup you will run the container in detached mode, or under
+   an orchestrator (Kubernetes, docker-compose, etc.) with **no interactive
+   TTY attached**.
+
+   In that situation there is nowhere for Telethon to read from, so the process
+   either blocks waiting on stdin or fails with an error. Attaching manually to
+   container stdin just to type a one-time code is awkward and fragile.
+
+2. **Non-interactive / automated deployments**
+
+   Containers are usually started by scripts or orchestration tools, not by a
+   human at a terminal. An interactive login step in the startup path breaks
+   this model and makes fully automated deployments impossible. The bot-based
+   `/auth` flow lets you keep the container fully non-interactive: you authorize
+   once via Telegram, and the session file is reused next time the container
+   starts.
+
+3. **Clear separation of concerns**
+
+   With bot-based auth, the container just runs the bot and user clients using
+   existing session files. All interactive steps (phone, code, password) happen
+   in Telegram itself, where you already expect to handle sensitive login
+   information. The container only sees the resulting session, not the raw
+   codes.
+
+Because of these constraints, the recommended approach is:
+
+- use `teledigest --auth` only for **local, manual** login when you are
+  actually sitting at a terminal; or when you are deliberately managing
+  sessions outside Docker, and
+- use the `/auth` bot command for **normal Docker / production** deployments,
+  where stdin is not reliably available and the process must remain
+  non-interactive.
 
 ## Contributing
 
