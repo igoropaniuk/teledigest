@@ -5,8 +5,11 @@ import asyncio
 import datetime as dt
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from dataclasses import dataclass
+from enum import Enum, auto
 
 from telethon import TelegramClient, events
+from telethon.errors import SessionPasswordNeededError
 from telethon.tl.functions.channels import JoinChannelRequest
 
 from .config import AppConfig, get_config, log
@@ -20,7 +23,33 @@ bot_client: TelegramClient | None = None
 scraped_chat_ids: set[int] = set()
 chat_id_to_name: dict[int, str] = {}
 
+ok_mark = "\u2705"
+cross_mark = "\u274c"
+
+
+class UserAuthState(Enum):
+    OK = auto()
+    REQUIRED = auto()
+    IN_PROGRESS = auto()
+
+
+class AuthStep(Enum):
+    WAIT_PHONE = auto()
+    WAIT_CODE = auto()
+
+
+@dataclass
+class AuthDialog:
+    step: AuthStep
+    phone: str | None = None
+    phone_code_hash: str | None = None
+
+
+user_auth_state: UserAuthState = UserAuthState.REQUIRED
+auth_dialogs: dict[int, AuthDialog] = {}
+
 SUPPORTED_COMMANDS: dict[str, str] = {
+    "/auth": "Start two-factor authentication process for the client instance",
     "/ping": "Health check (bot replies with 'pong')",
     "/today": "Generate a digest now from the last 24 hours of messages",
     "/status": "Show bot status and configuration summary",
@@ -83,7 +112,7 @@ async def ping_command(event):
     if not await is_user_allowed(event):
         log.info("/today denied for user_id=%s", event.sender_id)
         # You can either ignore silently or reply:
-        await event.reply("You are not allowed to use this command.")
+        await event.reply(f"{cross_mark} You are not allowed to use this command.")
         return
 
     await event.reply("pong")
@@ -92,7 +121,7 @@ async def ping_command(event):
 async def help_command(event):
     if not await is_user_allowed(event):
         log.info("/help denied for user_id=%s", event.sender_id)
-        await event.reply("You are not allowed to use this command.")
+        await event.reply(f"{cross_mark} You are not allowed to use this command.")
         return
 
     lines = ["<b>Supported commands</b>", ""]
@@ -106,7 +135,7 @@ async def today_command(event):
     # permissions check if you added one
     if not await is_user_allowed(event):
         log.info("/today denied for user_id=%s", event.sender_id)
-        await event.reply("You are not allowed to use this command.")
+        await event.reply(f"{cross_mark} You are not allowed to use this command.")
         return
 
     day = dt.date.today()
@@ -125,11 +154,101 @@ async def today_command(event):
         await event.reply("No messages available for the last 24 hours.")
 
 
+async def auth_start_command(event):
+    # permissions
+    if not await is_user_allowed(event):
+        log.info("/auth denied for user_id=%s", event.sender_id)
+        await event.reply(f"{cross_mark} You are not allowed to use this command.")
+        return
+
+    chat_id = event.chat_id
+
+    if user_auth_state == UserAuthState.OK:
+        await event.reply(f"{ok_mark} User client is already authorized.")
+        return
+
+    auth_dialogs[chat_id] = AuthDialog(step=AuthStep.WAIT_PHONE)
+
+    await event.reply(
+        "Please send your phone number in international format:\n"
+        "<code>+123456789</code>",
+        parse_mode="html",
+    )
+
+
+async def auth_dialog_handler(event):
+    # permissions
+    if not await is_user_allowed(event):
+        log.info("/auth denied for user_id=%s", event.sender_id)
+        await event.reply(f"{cross_mark} You are not allowed to use this command.")
+        return
+
+    # Ignore commands entirely
+    if event.raw_text.startswith("/"):
+        return
+
+    chat_id = event.chat_id
+    if chat_id not in auth_dialogs:
+        return
+
+    dialog = auth_dialogs[chat_id]
+    text = event.raw_text.strip()
+
+    # Phone number step
+    if dialog.step == AuthStep.WAIT_PHONE:
+        try:
+            sent = await user_client.send_code_request(text)
+            dialog.phone = text
+            dialog.phone_code_hash = sent.phone_code_hash
+            dialog.step = AuthStep.WAIT_CODE
+
+            await event.reply(
+                "Code sent.\n"
+                "Please type the 2FA code you received, but add SPACES between each digit "
+                "(for example: 1 2 3 4 5).\n"
+                "Do not forward the message; type the code manually."
+            )
+        except Exception as e:
+            del auth_dialogs[chat_id]
+            await event.reply(f"{cross_mark} Failed to send code: {e}</b>")
+
+    # Code step
+    elif dialog.step == AuthStep.WAIT_CODE:
+        try:
+            await user_client.sign_in(
+                phone=dialog.phone,
+                code="".join(ch for ch in text if ch.isdigit()),
+                phone_code_hash=dialog.phone_code_hash,
+            )
+
+            del auth_dialogs[chat_id]
+
+            global user_auth_state
+            user_auth_state = UserAuthState.OK
+
+            await user_client.get_me()
+            await ensure_joined_and_resolve_channels()
+            await event.reply(f"{ok_mark} Authorization successful!")
+
+        except SessionPasswordNeededError:
+            del auth_dialogs[chat_id]
+            await event.reply(
+                f"{cross_mark} This account has a password-based 2FA enabled.\n"
+                "Password-based login is not yet supported."
+            )
+        except Exception as e:
+            del auth_dialogs[chat_id]
+            await event.reply(
+                f"{cross_mark} Authorization failed: {e}\n"
+                "Send <code>/auth</code> to try again."
+            )
+
+
 async def status_command(event):
     # permissions
     if not await is_user_allowed(event):
         log.info("/status denied for user_id=%s", event.sender_id)
-        await event.reply("You are not allowed to use this command.")
+        await event.reply(f"{cross_mark} You are not allowed to use this command.")
         return
 
     cfg = get_config()
@@ -165,6 +284,14 @@ async def status_command(event):
         f"<b>Target channel:</b> <code>{cfg.bot.summary_target}</code>\n"
         f"<b>Scrape channels:</b>\n{channels_list}\n"
     )
+
+    if user_auth_state != UserAuthState.OK:
+        text += (
+            f"\n\n<b>User client:</b> {cross_mark} <b>Authorization required</b>\n"
+            "Use <code>/auth</code> to authorize the scraping account."
+        )
+    else:
+        text += f"\n\n<b>User client:</b> {ok_mark} Authorized"
 
     if relevant:
         text += f"\n<b>Current prompt size:</b> <code>{prompt_chars}</code> chars"
@@ -253,6 +380,10 @@ async def create_clients():
     bot_client.add_event_handler(help_command, events.NewMessage(pattern=r"^/help$"))
     bot_client.add_event_handler(today_command, events.NewMessage(pattern=r"^/today$"))
     bot_client.add_event_handler(ping_command, events.NewMessage(pattern=r"^/ping$"))
+    bot_client.add_event_handler(
+        auth_start_command, events.NewMessage(pattern=r"^/auth$")
+    )
+    bot_client.add_event_handler(auth_dialog_handler, events.NewMessage)
 
     user_client.add_event_handler(channel_message_handler, events.NewMessage)
 
@@ -272,16 +403,24 @@ async def start_clients(auth_only: bool = False) -> None:
     log.info("Channels to scrape (user account): %s", ", ".join(cfg.bot.channels))
 
     bot_client.on(events.NewMessage(pattern=r"^/ping$"))
-    # 1. Start user client (you will log in with your phone on first run)
-    await user_client.start()
+    # Log in with your phone on first run in CLI mode
     if auth_only:
+        await user_client.start()
         log.info("Auth-only mode: skipping channel joins and handler registration.")
         return
 
-    log.info("User client started (logged in as your account).")
-    await ensure_joined_and_resolve_channels()
+    # Non-interactive startup
+    await user_client.connect()
 
-    # 2. Start bot client
+    global user_auth_state
+    if not await user_client.is_user_authorized():
+        log.warning("User client not authorized. Use /auth command in the bot")
+        user_auth_state = UserAuthState.REQUIRED
+    else:
+        user_auth_state = UserAuthState.OK
+        await user_client.get_me()
+        await ensure_joined_and_resolve_channels()
+
     await bot_client.start(bot_token=cfg.telegram.bot_token)
     log.info("Bot client started (logged in as bot).")
 
@@ -289,10 +428,13 @@ async def start_clients(auth_only: bool = False) -> None:
 async def run_clients():
     global user_client, bot_client
 
-    # Keep the clients running
-    await asyncio.gather(
-        user_client.run_until_disconnected(), bot_client.run_until_disconnected()
-    )
+    if await user_client.is_user_authorized():
+        # Keep the clients running
+        await asyncio.gather(
+            user_client.run_until_disconnected(), bot_client.run_until_disconnected()
+        )
+    else:
+        await bot_client.run_until_disconnected()
 
 
 async def disconnect_clients(auth_only: bool = False) -> None:
