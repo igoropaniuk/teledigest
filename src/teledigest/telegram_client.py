@@ -52,7 +52,6 @@ SUPPORTED_COMMANDS: dict[str, str] = {
     "/auth": "Start two-factor authentication process for the client instance",
     "/help": "Show this help message",
     "/start": "Alias for /help",
-    "/ping": "Health check (bot replies with 'pong')",
     "/today": "Generate a digest now from the last 24 hours of messages",
     "/digest": "Alias for /today",
     "/status": "Show bot status and configuration summary",
@@ -107,17 +106,6 @@ async def is_user_allowed(event) -> bool:
         return True
 
     return False
-
-
-async def ping_command(event):
-    # permissions
-    if not await is_user_allowed(event):
-        log.info("/today denied for user_id=%s", event.sender_id)
-        # You can either ignore silently or reply:
-        await event.reply(f"{cross_mark} You are not allowed to use this command.")
-        return
-
-    await event.reply("pong")
 
 
 async def help_command(event):
@@ -385,7 +373,6 @@ async def create_clients():
     bot_client.add_event_handler(
         today_command, events.NewMessage(pattern=r"^/(today|digest)$")
     )
-    bot_client.add_event_handler(ping_command, events.NewMessage(pattern=r"^/ping$"))
     bot_client.add_event_handler(
         auth_start_command, events.NewMessage(pattern=r"^/auth$")
     )
@@ -408,7 +395,6 @@ async def start_clients(auth_only: bool = False) -> None:
     log.info("Starting user & bot clients...")
     log.info("Channels to scrape (user account): %s", ", ".join(cfg.bot.channels))
 
-    bot_client.on(events.NewMessage(pattern=r"^/ping$"))
     # Log in with your phone on first run in CLI mode
     if auth_only:
         await user_client.start()
