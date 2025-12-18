@@ -50,10 +50,12 @@ auth_dialogs: dict[int, AuthDialog] = {}
 
 SUPPORTED_COMMANDS: dict[str, str] = {
     "/auth": "Start two-factor authentication process for the client instance",
+    "/help": "Show this help message",
+    "/start": "Alias for /help",
     "/ping": "Health check (bot replies with 'pong')",
     "/today": "Generate a digest now from the last 24 hours of messages",
+    "/digest": "Alias for /today",
     "/status": "Show bot status and configuration summary",
-    "/help": "Show this help message",
 }
 
 
@@ -377,8 +379,12 @@ async def create_clients():
     bot_client.add_event_handler(
         status_command, events.NewMessage(pattern=r"^/status$")
     )
-    bot_client.add_event_handler(help_command, events.NewMessage(pattern=r"^/help$"))
-    bot_client.add_event_handler(today_command, events.NewMessage(pattern=r"^/today$"))
+    bot_client.add_event_handler(
+        help_command, events.NewMessage(pattern=r"^/(help|start)$")
+    )
+    bot_client.add_event_handler(
+        today_command, events.NewMessage(pattern=r"^/(today|digest)$")
+    )
     bot_client.add_event_handler(ping_command, events.NewMessage(pattern=r"^/ping$"))
     bot_client.add_event_handler(
         auth_start_command, events.NewMessage(pattern=r"^/auth$")
