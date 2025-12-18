@@ -188,10 +188,11 @@ poetry run teledigest --config teledigest.conf
 | Command   | Description |
 |-----------|-----------------------------------------------------------------|
 | `/auth`   | Authorize the user client so it canto access and scrape channels|
+| `/start`  | Alias for `/help`                                               |
 | `/help`   | Lists all supported bot commands                                |
-| `/ping`   | Health check (bot replies with `pong`)                          |
 | `/status` | Shows parsed/relevant counts (last 24h), schedule, model, ...   |
 | `/today`  | Immediately triggers digest generation for last 24 hours        |
+| `/digest` | Alias for `/today`                                              |
 
 ### Sanity checks
 
