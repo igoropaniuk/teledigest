@@ -7,6 +7,10 @@ Teledigest is a Telegram digest bot that fetches posts from
 configured Telegram channels, summarizes them using OpenAI models, and
 publishes digests to a target channel.
 
+> **Using Teledigest only?**
+> Install the latest release from PyPI <https://pypi.org/project/teledigest>
+> (see [Installing from PyPI](#installing-from-pypi-recommended))
+
 ## Prerequisites
 
 Before installing and running Teledigest, ensure the following tools are
@@ -37,7 +41,7 @@ Install examples:
   sudo apt-get install python3.12 python3.12-venv python3.12-dev
   ```
 
-### Poetry
+### Poetry (needed for development)
 
 The bot uses **Poetry** for dependency management and packaging. It requires at
 least version **2.0** of Poetry.
@@ -163,9 +167,44 @@ Teledigest uses **two separate Telegram clients**:
 
 This separation ensures correct access to the Telegram channels.
 
+## Installing from PyPI (recommended)
+
+Teledigest is available on PyPI and can be installed directly without cloning
+the repository.
+
+### Using pipx (recommended)
+
+```bash
+pipx install teledigest
+```
+
+Verify installation:
+
+```bash
+teledigest --help
+```
+
+### Using pip (virtual environment)
+
+```bash
+python3.12 -m venv venv
+source venv/bin/activate
+pip install teledigest
+```
+
+### Running after PyPI installation
+
+```bash
+teledigest --config teledigest.conf
+```
+
+> **Note**
+> Installing from PyPI is recommended for users who only want to run the bot.
+> Cloning the repository and using Poetry is mainly intended for development.
+
 ## Installing and running the project with Poetry
 
-### Install dependencies
+### Install dependencies using Poetry
 
 ``` bash
 poetry install
