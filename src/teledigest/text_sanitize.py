@@ -64,3 +64,29 @@ def sanitize_text(text: str) -> str:
     out = "".join(cleaned_chars)
     out = _WS_RE.sub(" ", out).strip()
     return out
+
+
+def strip_markdown_fence(text: str) -> str:
+    """
+    If the text is wrapped in ```...``` or ```markdown ... ```,
+    remove those outer fences so Telegram can render it as Markdown.
+    """
+    if not text:
+        return text
+
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return text
+
+    lines = stripped.splitlines()
+
+    # drop first line if it's ``` or ```markdown
+    first = lines[0].strip()
+    if first.startswith("```"):
+        lines = lines[1:]
+
+    # drop last line if it's ```
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+
+    return "\n".join(lines).strip()

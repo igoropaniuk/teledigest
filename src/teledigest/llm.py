@@ -5,6 +5,7 @@ import datetime as dt
 from openai import OpenAI
 
 from .config import get_config, log
+from .text_sanitize import strip_markdown_fence
 
 
 def build_prompt(day: dt.date, messages):
@@ -38,32 +39,6 @@ def build_prompt(day: dt.date, messages):
     )
 
     return system, user
-
-
-def strip_markdown_fence(text: str) -> str:
-    """
-    If the text is wrapped in ```...``` or ```markdown ... ```,
-    remove those outer fences so Telegram can render it as Markdown.
-    """
-    if not text:
-        return text
-
-    stripped = text.strip()
-    if not stripped.startswith("```"):
-        return text
-
-    lines = stripped.splitlines()
-
-    # drop first line if it's ``` or ```markdown
-    first = lines[0].strip()
-    if first.startswith("```"):
-        lines = lines[1:]
-
-    # drop last line if it's ```
-    if lines and lines[-1].strip() == "```":
-        lines = lines[:-1]
-
-    return "\n".join(lines).strip()
 
 
 def llm_summarize(day: dt.date, messages) -> str:
