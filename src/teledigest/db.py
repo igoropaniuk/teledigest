@@ -4,6 +4,7 @@ import datetime as dt
 import sqlite3
 
 from .config import get_config, log
+from .text_sanitize import sanitize_text
 
 
 def init_db():
@@ -48,6 +49,8 @@ def init_db():
 def save_message(msg_id: str, channel: str, date: dt.datetime, text: str):
     if not text:
         return
+
+    text = sanitize_text(text)
     iso = date.isoformat()
 
     conn = sqlite3.connect(get_config().storage.db_path)
