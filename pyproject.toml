@@ -1,7 +1,7 @@
 [project]
 name = "teledigest"
 version = "0.1.0"
-description = "LLM-driven Telegram digest bot"
+description = "LLM-driven framework for building Telegram digest and channel-analysis bots"
 authors = [{ name = "Igor Opaniuk", email = "igor.opaniuk@gmail.com" }]
 license = "MIT"
 readme = "README.md"
