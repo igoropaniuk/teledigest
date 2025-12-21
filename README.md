@@ -3,9 +3,26 @@
 [![License](https://img.shields.io/badge/licence-MIT-green)](https://opensource.org/license/mit)
 [![Build on push](https://github.com/igoropaniuk/teledigest/actions/workflows/ci.yml/badge.svg)](https://github.com/igoropaniuk/teledigest/actions/workflows/ci.yml/badge.svg)
 
-Teledigest is a Telegram digest bot that fetches posts from
-configured Telegram channels, summarizes them using OpenAI models, and
-publishes digests to a target channel.
+Teledigest is a framework for building Telegram bots that collect messages from channels,
+analyze them, and generate readable digests using large language models.
+
+- **Channel ingestion**
+  Scrapes messages from one or more Telegram channels using a dedicated user session.
+
+- **Message storage & indexing**
+  Stores messages in SQLite with FTS5 full-text search, enabling fast filtering
+  (with configurable keywords for filtering) and relevance selection.
+
+- **LLM-powered analysis & summarization**
+  Uses configurable prompts for Large Language Models to analyze recent messages
+  and produce structured summaries or digests.
+
+- **Scheduled and on-demand digests**
+  - Automatic daily digests at a configured time
+  - Manual `/digest` command to generate a digest on demand
+
+- **Bot publishing**
+  Publishes generated digests to a configured target channel.
 
 > **Using Teledigest only?**
 > Install the latest release from PyPI <https://pypi.org/project/teledigest>
