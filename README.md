@@ -227,12 +227,6 @@ teledigest --config teledigest.conf
 poetry install
 ```
 
-Install pre-commit hook for code sanity checks:
-
-```bash
-poetry run pre-commit install
-```
-
 ### Run the bot
 
 ``` bash
@@ -249,28 +243,6 @@ poetry run teledigest --config teledigest.conf
 | `/status` | Shows parsed/relevant counts (last 24h), schedule, model, ...   |
 | `/today`  | Immediately triggers digest generation for last 24 hours        |
 | `/digest` | Alias for `/today`                                              |
-
-### Sanity checks
-
-Teledigest uses `ruff`, `black`, `isort`, and `mypy`.
-
-Run all checks:
-
-``` bash
-poetry run ruff check .
-poetry run black --check .
-poetry run isort --check-only .
-poetry run mypy
-poetry run pytest
-```
-
-To auto‑format:
-
-``` bash
-poetry run ruff check . --fix
-poetry run black  .
-poetry run isort .
-```
 
 ## Running with Docker
 
@@ -537,47 +509,8 @@ Because of these constraints, the recommended approach is:
 
 ## Contributing
 
-We follow a **clean history** approach with **fast‑forward merges**.
-
-1. Fork the repository first
-2. Fetch your fork:
-
-   ``` bash
-   git clone https://github.com/<your-username>/teledigest.git -b main
-   cd teledigest
-   ```
-
-3. Create a feature branch:
-
-   ``` bash
-   git checkout -b feature/my-change
-   ```
-
-4. Commit your changes and push:
-
-   ``` bash
-   git push -u origin feature/my-change
-   ```
-
-5. Open a Pull Request on GitHub.
-
-### Commit Message Style
-
-This project uses the **Conventional Commits** specification:
-<https://www.conventionalcommits.org/en/v1.0.0/>
-
-Example commit messages:
-
-```bash
-$ git log --oneline
-0d6c6ed docs(readme): add comprehensive project README
-bee85ca chore: fix type and style issues
-da78832 chore(dev): add black, isort, mypy and ruff as dev dependencies
-654ca70 feat(config): migrate bot configuration to toml
-05f221c feat(db): use messages from the last 24 hours for digest generation
-4971b97 refactor: reorganize project into dedicated modules
-...
-```
+Development setup, coding standards, testing, and pull request workflow live in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
