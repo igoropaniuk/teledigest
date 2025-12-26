@@ -207,7 +207,7 @@ async def auth_dialog_handler(event):
         try:
             await user_client.sign_in(
                 phone=dialog.phone,
-                code="".join(ch for ch in text if ch.isdigit()),
+                code="".join(ch for ch in text if ch.isalnum() or ch == "-"),
                 phone_code_hash=dialog.phone_code_hash,
             )
 
