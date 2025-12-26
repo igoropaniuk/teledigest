@@ -167,18 +167,18 @@ async def auth_start_command(event):
 
 
 async def auth_dialog_handler(event):
-    # permissions
-    if not await is_user_allowed(event):
-        log.info("/auth denied for user_id=%s", event.sender_id)
-        await event.reply(f"{cross_mark} You are not allowed to use this command.")
-        return
-
     # Ignore commands entirely
     if event.raw_text.startswith("/"):
         return
 
     chat_id = event.chat_id
     if chat_id not in auth_dialogs:
+        return
+
+    # permissions
+    if not await is_user_allowed(event):
+        log.info("/auth denied for user_id=%s", event.sender_id)
+        await event.reply(f"{cross_mark} You are not allowed to use this command.")
         return
 
     dialog = auth_dialogs[chat_id]
