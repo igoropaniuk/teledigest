@@ -176,7 +176,7 @@ def test_build_fts_query_joins_keywords_with_or(
 
 def test_build_fts_query_raises_when_no_keywords(app_config: cfg.AppConfig) -> None:
     app_config.storage.rag_keywords = []
-    with pytest.raises(RuntimeError):
+    with pytest.raises(db.DatabaseError):
         db.build_fts_query()
 
 
