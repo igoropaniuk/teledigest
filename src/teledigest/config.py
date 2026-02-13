@@ -32,6 +32,7 @@ class LLMConfig:
     api_key: str
     system_prompt: str
     user_prompt: str
+    base_url: Optional[str] = None
 
 
 @dataclass
@@ -168,6 +169,7 @@ def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
         model=str(llm_raw.get("model", "gpt-5.1")),
         system_prompt=str(prompts_raw.get("system", _DEFAULT_SYSTEM_PROMPT)),
         user_prompt=str(prompts_raw.get("user", _DEFAULT_USER_PROMPT)),
+        base_url=str(llm_raw.get("base_url", "")) or None,
     )
 
     if not llm.api_key:

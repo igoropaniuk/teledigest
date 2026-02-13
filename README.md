@@ -113,6 +113,19 @@ messages.
 3. Copy the api key - you will need it for the
    configuration file
 
+## Using Local Ollama / LM Studio Models
+
+1. Make sure Ollama or LM Studio is running locally and the model is loaded.
+2. Set the following fields in the `[llm]` section of your config file:
+   - `model` — local model name, e.g. `"gemma3:1b"`
+   - `api_key` — set to `"ollama"` or `"lm-studio"` respectively
+   - `base_url` — the local API endpoint:
+     - Ollama: `"http://localhost:11434/v1"`
+     - LM Studio: `"http://localhost:1234/v1"`
+
+> **Note:** The port number may differ if you changed the default settings.
+> Omit `base_url` entirely when using the standard OpenAI API.
+
 ## Preparing the configuration file
 
 Before running the bot, create a configuration file,
@@ -134,6 +147,8 @@ allowed_users = "@admin,123456789"
 [llm]
 model = "gpt-5.1-mini"
 api_key = "YOUR_OPENAI_API_KEY"
+base_url = "url_for_llm_api" # Not needed when using OpenAI API.
+                             # Set only when using local models
 
 [storage.rag]
 keywords = [
