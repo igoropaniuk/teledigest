@@ -113,6 +113,18 @@ messages.
 3. Copy the api key - you will need it for the
    configuration file
 
+## Using local Ollama / LM Studio Models
+
+1. Make sure Ollama / LM Studio is running locally and the model is loaded
+2. Set the config with:
+   * model="local_model_name", e.g. "gemma3:1b"
+   * api_key="ollama" or "lm-studio"
+   * base_url =
+     * "http://localhost:11434/v1" # for Ollama
+     * "http://localhost:1234/v1" # for LM Studio
+     * note the port number may be different if you changed the standard setting
+     * do NOT use this flag if you are using OpenAI API
+
 ## Preparing the configuration file
 
 Before running the bot, create a configuration file,
@@ -126,14 +138,16 @@ bot_token = "123456:ABCDEF"
 
 [bot]
 channels = ["@news", "@events"]
-summary_target = "@digest_channel"
+summary_target = "@digest_channel" # your channel for the bot to post summary digest
 summary_hour = 21
 summary_minute = 0
-allowed_users = "@admin,123456789"
+time_zone = "America/New_York" # optional to configure for your timezone; default is "Europe/Warsaw" if this flag is empty or missing
+allowed_users = "@admin,123456789" # usernames for people allowed to communicate with the bot.
 
 [llm]
 model = "gpt-5.1-mini"
 api_key = "YOUR_OPENAI_API_KEY"
+base_url = "url_for_llm_api" # not needed when using OpenAI API. Set only when using local models
 
 [storage.rag]
 keywords = [
