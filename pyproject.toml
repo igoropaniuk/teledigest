@@ -12,6 +12,7 @@ dependencies = [
     "openai (>=2.9.0,<3.0.0)",
     "sqlite-utils (>=3.39,<4.0)",
     "platformdirs (>=4.5.1,<5.0.0)",
+    "tzdata (>=2025.3,<2026.0)",
 ]
 
 [tool.poetry]
