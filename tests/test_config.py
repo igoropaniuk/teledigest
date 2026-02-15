@@ -191,6 +191,32 @@ def test_parse_app_config_llm_api_key_required() -> None:
     assert "Config [llm].api_key is required." in str(exc.value)
 
 
+def test_parse_app_config_llm_base_url_provided() -> None:
+    raw = _make_minimal_raw()
+    raw["llm"]["base_url"] = "http://localhost"
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.llm.base_url == "http://localhost"
+
+
+def test_parse_app_config_llm_base_url_not_provided() -> None:
+    raw = _make_minimal_raw()
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.llm.base_url == None
+
+
+def test_parse_app_config_llm_base_url_empty_str() -> None:
+    raw = _make_minimal_raw()
+    raw["llm"]["base_url"] = ""
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.llm.base_url == None
+
+
 # ---------------------------------------------------------------------------
 # _locate_config_path / _default_config_path
 # ---------------------------------------------------------------------------
