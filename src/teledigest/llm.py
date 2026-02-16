@@ -43,8 +43,8 @@ def build_prompt(day: dt.date, messages):
 
 def llm_summarize(day: dt.date, messages) -> str:
     client = OpenAI(
-        api_key=get_config().llm.api_key,
-        base_url=get_config().llm.base_url) # will use standard openAI URL if base_url is not provided
+        api_key=get_config().llm.api_key, base_url=get_config().llm.base_url
+    )  # will use standard openAI URL if base_url is not provided
 
     system, user = build_prompt(day, messages)
     log.info("Calling OpenAI for summary (%d messages)...", len(messages))

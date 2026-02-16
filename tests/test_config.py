@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
 from typing import Any, Dict
 
@@ -205,7 +204,7 @@ def test_parse_app_config_llm_base_url_not_provided() -> None:
 
     app_cfg = config._parse_app_config(raw)
 
-    assert app_cfg.llm.base_url == None
+    assert app_cfg.llm.base_url is None
 
 
 def test_parse_app_config_llm_base_url_empty_str() -> None:
@@ -214,7 +213,7 @@ def test_parse_app_config_llm_base_url_empty_str() -> None:
 
     app_cfg = config._parse_app_config(raw)
 
-    assert app_cfg.llm.base_url == None
+    assert app_cfg.llm.base_url is None
 
 
 # ---------------------------------------------------------------------------
