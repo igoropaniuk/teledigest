@@ -139,10 +139,15 @@ bot_token = "123456:ABCDEF"
 
 [bot]
 channels = ["@news", "@events"]
-summary_target = "@digest_channel"
+summary_target = "@digest_channel" # your channel for the
+                                   # bot to post summary digest
 summary_hour = 21
 summary_minute = 0
-allowed_users = "@admin,123456789"
+time_zone = "America/New_York" # optional to configure for your timezone;
+                               # default is "Europe/Warsaw" if this flag
+                               # is empty or missing
+allowed_users = "@admin,123456789" # usernames for people
+                                   # allowed to communicate with the bot.
 
 [llm]
 model = "gpt-5.1-mini"
