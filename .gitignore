@@ -26,9 +26,6 @@ Thumbs.db
 # VSCode
 .vscode/
 
-# Poetry
-poetry.lock
-
 # Ruff cache
 .ruff_cache/
 
