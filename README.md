@@ -28,6 +28,24 @@ analyze them, and generate readable digests using large language models.
 > Install the latest release from PyPI <https://pypi.org/project/teledigest>
 > (see [Installing from PyPI](#installing-from-pypi-recommended))
 
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Fetching the project](#fetching-the-project)
+- [Obtaining a Telegram Bot Token](#obtaining-a-telegram-bot-token)
+- [Obtaining Telegram Application Credentials](#obtaining-telegram-application-credentials)
+- [Obtaining an OpenAI API Key](#obtaining-an-openai-api-key)
+- [Using Local Ollama / LM Studio Models](#using-local-ollama--lm-studio-models)
+- [Preparing the configuration file](#preparing-the-configuration-file)
+- [Bot Architecture](#bot-architecture)
+- [Installing from PyPI (recommended)](#installing-from-pypi-recommended)
+- [Installing and running the project with Poetry](#installing-and-running-the-project-with-poetry)
+- [Running with Docker](#running-with-docker)
+- [Running as a systemd service](#running-as-a-systemd-service)
+- [First run & authentication](#first-run--authentication)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Prerequisites
 
 Before installing and running Teledigest, ensure the following tools are
