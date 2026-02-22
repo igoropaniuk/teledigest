@@ -391,6 +391,95 @@ If needed, ensure the data directory is writable:
 chmod -R a+rwX data
 ```
 
+## Running as a systemd service
+
+For production deployments on Linux, you can manage the Teledigest Docker
+Compose stack with a systemd service. This ensures the bot starts automatically
+on boot and is restarted by the init system if the host reboots.
+
+### Creating the service file
+
+Create `/etc/systemd/system/teledigest.service` with the following content,
+replacing `youruser` and `/path/to/your/teledigest/repository` with the actual
+values for your system:
+
+```ini
+[Unit]
+Description=Teledigest service
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=youruser
+WorkingDirectory=/path/to/your/teledigest/repository
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+```
+
+> **Note:** The user specified in `User=` must have permission to manage
+Docker containers. This typically means adding the user to the `docker`
+group: `sudo usermod -aG docker youruser`.
+
+### Enabling and starting the service
+
+Reload systemd to pick up the new unit file, then enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable teledigest.service
+sudo systemctl start teledigest.service
+```
+
+### Managing the service
+
+Check the current status:
+
+```bash
+sudo systemctl status teledigest.service
+```
+
+View logs (forwarded from Docker via journald):
+
+```bash
+sudo journalctl -u teledigest.service -f
+```
+
+Stop the bot:
+
+```bash
+sudo systemctl stop teledigest.service
+```
+
+Restart the bot (e.g. after a config change):
+
+```bash
+sudo systemctl restart teledigest.service
+```
+
+Update the bot after a code change (rebuilds image):
+
+```bash
+sudo systemctl reload teledigest.service
+```
+
+Disable autostart on boot:
+
+```bash
+sudo systemctl disable teledigest.service
+```
+
+> **Note:** `Type=oneshot` with `RemainAfterExit=yes` is intentional — the
+> `ExecStart` command returns immediately after Docker Compose launches the
+> containers in detached mode (`-d`). systemd then treats the service as
+> *active* for as long as the containers are running, and correctly invokes
+> `ExecStop` on shutdown or `systemctl stop`.
+
 ## First run & authentication
 
 On first run, if the user session is missing:
