@@ -15,6 +15,7 @@ from telethon.tl.functions.channels import JoinChannelRequest
 from .config import AppConfig, get_config, log
 from .db import get_messages_last_24h, get_relevant_messages_last_24h, save_message
 from .llm import build_prompt, llm_summarize
+from .message_utils import reply_long
 
 user_client: TelegramClient | None = None
 bot_client: TelegramClient | None = None
@@ -139,7 +140,7 @@ async def today_command(event):
 
     if messages:
         summary = llm_summarize(day, messages)
-        await event.reply(summary, parse_mode="html")
+        await reply_long(event, summary, parse_mode="html")
     else:
         await event.reply("No messages available for the last 24 hours.")
 
@@ -288,7 +289,7 @@ async def status_command(event):
     else:
         text += "\n\n<i>No relevant messages found in the last 24 hours.</i>"
 
-    await event.reply(text, parse_mode="html")
+    await reply_long(event, text, parse_mode="html")
 
 
 async def ensure_joined_and_resolve_channels():
