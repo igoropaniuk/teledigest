@@ -11,7 +11,7 @@ RUN apt-get update \
 RUN pip install --no-cache-dir --upgrade pip build poetry-core
 
 # Copy sources needed for wheel build
-COPY pyproject.toml poetry.lock README.md /app/
+COPY pyproject.toml README.md /app/
 COPY src /app/src
 
 # Build a wheel (do NOT use --no-isolation unless you really need it)
