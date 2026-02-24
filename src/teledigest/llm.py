@@ -55,7 +55,7 @@ def llm_summarize(day: dt.date, messages) -> str:
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            temperature=0.4,
+            temperature=get_config().llm.temperature,
         )
 
         content = response.choices[0].message.content

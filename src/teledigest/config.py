@@ -33,6 +33,7 @@ class LLMConfig:
     system_prompt: str
     user_prompt: str
     base_url: Optional[str] = None
+    temperature: float = 0.4
 
 
 @dataclass
@@ -170,7 +171,11 @@ def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
         system_prompt=str(prompts_raw.get("system", _DEFAULT_SYSTEM_PROMPT)),
         user_prompt=str(prompts_raw.get("user", _DEFAULT_USER_PROMPT)),
         base_url=str(llm_raw.get("base_url", "")) or None,
+        temperature=float(llm_raw.get("temperature", 0.4)),
     )
+
+    if not (0.0 <= llm.temperature <= 2.0):
+        raise ValueError("Config [llm].temperature must be between 0.0 and 2.0.")
 
     if not llm.api_key:
         raise ValueError("Config [llm].api_key is required.")

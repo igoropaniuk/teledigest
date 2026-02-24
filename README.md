@@ -172,6 +172,7 @@ model = "gpt-5.1-mini"
 api_key = "YOUR_OPENAI_API_KEY"
 base_url = "url_for_llm_api" # Not needed when using OpenAI API.
                              # Set only when using local models
+temperature = 0.4            # optional; controls LLM output randomness (0.0-2.0)
 
 [storage.rag]
 keywords = [
