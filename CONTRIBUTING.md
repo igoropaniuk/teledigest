@@ -151,6 +151,48 @@ da78832 chore(dev): add black, isort, mypy and ruff as dev dependencies
 ...
 ```
 
+### Signed-off-by
+
+All commits must carry a `Signed-off-by` trailer.  It is your attestation
+that you wrote the change and have the right to submit it under the project's
+license (see the [Developer Certificate of Origin](https://developercertificate.org/)).
+
+Add it automatically with the `-s` flag:
+
+```bash
+git commit -s -m "feat: your descriptive commit message"
+```
+
+This appends a line like the following to the commit body:
+
+```text
+Signed-off-by: Your Name <you@example.com>
+```
+
+Git reads your name and e-mail from `user.name` / `user.email` in your
+git config, so make sure those are set correctly before you start.
+
+### Squashing fix commits
+
+To keep the commit history clean and easier to follow, please squash fix
+commits into the original commits they relate to, instead of adding separate
+"fix" commits.
+
+Having standalone fix commits makes the history harder to read and review
+later.  When each commit is logically complete (i.e. it compiles, passes
+tests, and includes any follow-up fixes), it:
+
+- Makes `git blame` more meaningful
+- Keeps the history easier to understand
+- Simplifies potential reverts
+- Maintains a clean and intentional commit narrative
+
+Use an interactive rebase to squash the fixes into the relevant commits:
+
+```bash
+git rebase -i <your-feature-branch>
+```
+
 ---
 
 ## Questions / ideas
