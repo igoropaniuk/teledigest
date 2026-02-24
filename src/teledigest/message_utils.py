@@ -97,9 +97,11 @@ def split_chunks(text: str, max_len: int = _EFFECTIVE_MAX_LEN) -> list[str]:
     return chunks or [""]
 
 
-async def reply_long(event, text: str, parse_mode: str = "html") -> None:
+async def _send_long(text: str, sender, parse_mode: str = "html") -> None:
     """
-    Send *text* as one or more Telegram replies.
+    Core implementation: split *text* and dispatch each part via *sender*.
+
+    *sender* must be an async callable with signature ``(text, parse_mode=...)``.
 
     * If the text fits in a single message it is sent as-is, with no footer.
     * If it requires multiple messages each part gets an italic footer::
@@ -112,10 +114,46 @@ async def reply_long(event, text: str, parse_mode: str = "html") -> None:
     chunks = split_chunks(text)
 
     if len(chunks) == 1:
-        await event.reply(text, parse_mode=parse_mode)
+        await sender(text, parse_mode=parse_mode)
         return
 
     total = len(chunks)
     for i, chunk in enumerate(chunks, start=1):
         footer = f"\n<i>— message {i} of {total} —</i>"
-        await event.reply(chunk + footer, parse_mode=parse_mode)
+        await sender(chunk + footer, parse_mode=parse_mode)
+
+
+async def reply_long(event, text: str, parse_mode: str = "html") -> None:
+    """
+    Send *text* as one or more Telegram replies.
+
+    * If the text fits in a single message it is sent as-is, with no footer.
+    * If it requires multiple messages each part gets an italic footer::
+
+          — message 1 of 3 —
+
+    Line boundaries are preferred split points; individual lines that
+    exceed the limit are hard-split by character position as a fallback.
+    """
+    await _send_long(text, event.reply, parse_mode=parse_mode)
+
+
+async def send_message_long(
+    bot_client, target: str, text: str, parse_mode: str = "html"
+) -> None:
+    """
+    Send *text* as one or more Telegram messages to *target*.
+
+    * If the text fits in a single message it is sent as-is, with no footer.
+    * If it requires multiple messages each part gets an italic footer::
+
+          — message 1 of 3 —
+
+    Line boundaries are preferred split points; individual lines that
+    exceed the limit are hard-split by character position as a fallback.
+    """
+    await _send_long(
+        text,
+        lambda msg, **kw: bot_client.send_message(target, msg, **kw),
+        parse_mode=parse_mode,
+    )

@@ -7,6 +7,7 @@ from telethon.errors import RPCError
 from .config import get_config, log
 from .db import get_relevant_messages_last_24h
 from .llm import llm_summarize
+from .message_utils import send_message_long
 from .telegram_client import get_bot_client
 
 
@@ -49,7 +50,8 @@ async def summary_scheduler():
                 summary = f"No messages to summarize for the last 24 hours (labelled as {today.isoformat()})."
 
             try:
-                await bot_client.send_message(
+                await send_message_long(
+                    bot_client,
                     summary_target,
                     summary,
                     parse_mode="html",
