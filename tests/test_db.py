@@ -297,6 +297,12 @@ def test_get_relevant_messages_for_range_falls_back_on_fts_error(
             def cursor(self):
                 return FakeCursor(self._inner.cursor())
 
+            def commit(self):
+                self._inner.commit()
+
+            def rollback(self):
+                self._inner.rollback()
+
             def close(self):
                 self._inner.close()
 

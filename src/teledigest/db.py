@@ -25,7 +25,16 @@ def get_db_connection() -> Iterator[sqlite3.Connection]:
     """
     Context manager for database connections.
 
-    Ensures connections are properly closed even if errors occur.
+    Manages the full transaction lifecycle in addition to the connection
+    lifecycle:
+
+    * Commits automatically when the ``with`` block exits without an exception.
+    * Rolls back automatically if any exception (including ``KeyboardInterrupt``
+      and ``SystemExit``) escapes the block, then re-raises it.
+    * Always closes the connection.
+
+    Callers must not call ``conn.commit()`` or ``conn.rollback()`` directly —
+    those are the context manager's responsibility.
 
     Yields:
         sqlite3.Connection: Active database connection
@@ -34,6 +43,11 @@ def get_db_connection() -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(db_path)
     try:
         yield conn
+    except BaseException:
+        conn.rollback()
+        raise
+    else:
+        conn.commit()
     finally:
         conn.close()
 
@@ -81,8 +95,6 @@ def init_db() -> None:
         except sqlite3.OperationalError as e:
             log.error("Failed to create FTS5 table: %s", e)
             raise DatabaseError(f"FTS5 initialization failed: {e}") from e
-
-        conn.commit()
 
 
 def save_message(msg_id: str, channel: str, date: dt.datetime, text: str) -> None:
@@ -133,8 +145,6 @@ def save_message(msg_id: str, channel: str, date: dt.datetime, text: str) -> Non
                     log.warning(
                         "Failed to insert into FTS index (FTS disabled?): %s", e
                     )
-
-            conn.commit()
 
     except sqlite3.Error as e:
         log.error("Failed to save message %s: %s", msg_id, e)
