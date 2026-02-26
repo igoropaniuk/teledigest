@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import sqlite3
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Iterator, NamedTuple
 
 from .config import get_config, log
 from .text_sanitize import sanitize_text
@@ -12,7 +12,12 @@ from .text_sanitize import sanitize_text
 class DatabaseError(Exception):
     """Database operation errors."""
 
-    pass
+
+class Message(NamedTuple):
+    """A single stored message, as returned by all query helpers."""
+
+    channel: str
+    text: str
 
 
 @contextmanager
@@ -27,7 +32,6 @@ def get_db_connection() -> Iterator[sqlite3.Connection]:
     """
     db_path = get_config().storage.db_path
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row  # Enable dict-like access
     try:
         yield conn
     finally:
@@ -113,17 +117,22 @@ def save_message(msg_id: str, channel: str, date: dt.datetime, text: str) -> Non
                 (msg_id, channel, iso, text),
             )
 
-            # Insert into FTS index
-            try:
-                cur.execute(
-                    """
-                    INSERT INTO messages_fts (id, channel, date, text)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (msg_id, channel, iso, text),
-                )
-            except sqlite3.OperationalError as e:
-                log.warning("Failed to insert into FTS index (FTS disabled?): %s", e)
+            # Only mirror to FTS when the row was actually inserted.
+            # INSERT OR IGNORE sets rowcount=0 on a duplicate, so skipping
+            # the FTS insert avoids accumulating phantom duplicates there.
+            if cur.rowcount:
+                try:
+                    cur.execute(
+                        """
+                        INSERT INTO messages_fts (id, channel, date, text)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (msg_id, channel, iso, text),
+                    )
+                except sqlite3.OperationalError as e:
+                    log.warning(
+                        "Failed to insert into FTS index (FTS disabled?): %s", e
+                    )
 
             conn.commit()
 
@@ -134,7 +143,7 @@ def save_message(msg_id: str, channel: str, date: dt.datetime, text: str) -> Non
 
 def get_messages_for_range(
     start: dt.datetime, end: dt.datetime, limit: int | None = None
-) -> list[tuple[str, str]]:
+) -> list[Message]:
     """
     Get all messages in a date range.
 
@@ -144,7 +153,7 @@ def get_messages_for_range(
         limit: Maximum number of messages to return
 
     Returns:
-        List of (channel, text) tuples
+        List of Message(channel, text) named tuples
 
     Raises:
         DatabaseError: If query fails
@@ -156,31 +165,27 @@ def get_messages_for_range(
         with get_db_connection() as conn:
             cur = conn.cursor()
 
-            # Build query with proper parameterization
             sql = """
                 SELECT channel, text FROM messages
                 WHERE date BETWEEN ? AND ?
                 ORDER BY date ASC
             """
 
-            params = [start_iso, end_iso]
+            params: list[str | int] = [start_iso, end_iso]
 
-            # Add LIMIT as a parameter to prevent SQL injection
             if limit is not None:
                 sql += " LIMIT ?"
-                params.append(str(limit))
+                params.append(limit)
 
             cur.execute(sql, params)
-            return cur.fetchall()
+            return [Message(*row) for row in cur.fetchall()]
 
     except sqlite3.Error as e:
         log.error("Failed to query messages: %s", e)
         raise DatabaseError(f"Failed to query messages: {e}") from e
 
 
-def get_messages_for_day(
-    day: dt.date, limit: int | None = None
-) -> list[tuple[str, str]]:
+def get_messages_for_day(day: dt.date, limit: int | None = None) -> list[Message]:
     """
     Get all messages for a specific day.
 
@@ -189,45 +194,37 @@ def get_messages_for_day(
         limit: Maximum number of messages
 
     Returns:
-        List of (channel, text) tuples
+        List of Message(channel, text) named tuples
     """
     start = dt.datetime.combine(day, dt.time.min)
     end = dt.datetime.combine(day, dt.time.max)
     return get_messages_for_range(start, end, limit)
 
 
-def build_fts_query() -> str:
+def build_fts_query() -> str | None:
     """
-    Build FTS5 query from configured keywords.
+    Build an FTS5 MATCH query from the configured keywords.
 
     Returns:
-        FTS5 MATCH query string
-
-    Raises:
-        DatabaseError: If no keywords configured
+        A query string such as ``"war OR drone*"``, or ``None`` when no
+        keywords are configured.  Callers that receive ``None`` should fall
+        back to a full range scan rather than treating the absence of keywords
+        as an error.
     """
-    cfg = get_config()
-    kws = cfg.storage.rag_keywords
-
-    # Filter empty keywords
+    kws = get_config().storage.rag_keywords
     parts = [kw.strip() for kw in kws if kw.strip()]
-
-    if not parts:
-        raise DatabaseError("No RAG keywords configured")
-
-    # Join with OR operator for FTS5
-    return " OR ".join(parts)
+    return " OR ".join(parts) if parts else None
 
 
 def get_relevant_messages_for_range(
     start: dt.datetime,
     end: dt.datetime,
     max_docs: int = 200,
-) -> list[tuple[str, str]]:
+) -> list[Message]:
     """
     RAG-style retrieval using FTS index.
 
-    Falls back to full scan if FTS is unavailable.
+    Falls back to full scan if FTS is unavailable or no keywords are configured.
 
     Args:
         start: Start of date range
@@ -235,15 +232,11 @@ def get_relevant_messages_for_range(
         max_docs: Maximum documents to return
 
     Returns:
-        List of (channel, text) tuples matching keywords
+        List of Message(channel, text) named tuples matching keywords
     """
-    start_iso = start.isoformat()
-    end_iso = end.isoformat()
-
-    try:
-        query = build_fts_query()
-    except DatabaseError as e:
-        log.warning("Cannot build FTS query: %s. Using full scan.", e)
+    query = build_fts_query()
+    if query is None:
+        log.warning("No RAG keywords configured — using full scan.")
         return get_messages_for_range(start, end, limit=max_docs)
 
     try:
@@ -259,14 +252,14 @@ def get_relevant_messages_for_range(
                 LIMIT ?
             """
 
-            cur.execute(sql, (query, start_iso, end_iso, max_docs))
-            rows = cur.fetchall()
+            cur.execute(sql, (query, start.isoformat(), end.isoformat(), max_docs))
+            rows = [Message(*row) for row in cur.fetchall()]
 
             if rows:
                 log.info(
                     "FTS retrieval for %s - %s returned %d messages (max %d)",
-                    start_iso,
-                    end_iso,
+                    start.isoformat(),
+                    end.isoformat(),
                     len(rows),
                     max_docs,
                 )
@@ -281,7 +274,7 @@ def get_relevant_messages_for_range(
     return get_messages_for_range(start, end, limit=max_docs)
 
 
-def get_relevant_messages_for_day(day: dt.date, max_docs: int = 200):
+def get_relevant_messages_for_day(day: dt.date, max_docs: int = 200) -> list[Message]:
     """
     Backwards-compatible wrapper using a calendar day.
     """
@@ -290,19 +283,23 @@ def get_relevant_messages_for_day(day: dt.date, max_docs: int = 200):
     return get_relevant_messages_for_range(start, end, max_docs)
 
 
-def get_messages_last_24h(limit: int | None = None):
+def _rolling_window() -> tuple[dt.datetime, dt.datetime]:
+    """Return (start, end) for a rolling 24-hour window ending now (UTC)."""
+    now = dt.datetime.now(dt.timezone.utc)
+    return now - dt.timedelta(hours=24), now
+
+
+def get_messages_last_24h(limit: int | None = None) -> list[Message]:
     """
     All messages from the last 24 hours (rolling window), in UTC.
     """
-    now = dt.datetime.now(dt.timezone.utc)
-    start = now - dt.timedelta(hours=24)
-    return get_messages_for_range(start, now, limit)
+    start, end = _rolling_window()
+    return get_messages_for_range(start, end, limit)
 
 
-def get_relevant_messages_last_24h(max_docs: int = 200):
+def get_relevant_messages_last_24h(max_docs: int = 200) -> list[Message]:
     """
     RAG-style retrieval for the last 24 hours (rolling window), in UTC.
     """
-    now = dt.datetime.now(dt.timezone.utc)
-    start = now - dt.timedelta(hours=24)
-    return get_relevant_messages_for_range(start, now, max_docs)
+    start, end = _rolling_window()
+    return get_relevant_messages_for_range(start, end, max_docs)

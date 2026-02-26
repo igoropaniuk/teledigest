@@ -174,10 +174,40 @@ def test_build_fts_query_joins_keywords_with_or(
     assert query == "war OR offensive OR drone*"
 
 
-def test_build_fts_query_raises_when_no_keywords(app_config: cfg.AppConfig) -> None:
+def test_build_fts_query_returns_none_when_no_keywords(
+    app_config: cfg.AppConfig,
+) -> None:
     app_config.storage.rag_keywords = []
-    with pytest.raises(db.DatabaseError):
-        db.build_fts_query()
+    assert db.build_fts_query() is None
+
+
+# ---------------------------------------------------------------------------
+# save_message – FTS duplicate guard
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not supports_fts5(), reason="sqlite3 FTS5 is not available")
+def test_save_message_does_not_duplicate_fts_on_replay(
+    app_config: cfg.AppConfig,
+) -> None:
+    """
+    Saving the same msg_id twice must not create a duplicate FTS row.
+
+    INSERT OR IGNORE silently skips the main table on a duplicate, so the
+    FTS insert must be gated on cur.rowcount to keep the two tables in sync.
+    """
+    db.init_db()
+
+    base = dt.datetime(2024, 1, 1, 12, 0, 0, tzinfo=dt.timezone.utc)
+    db.save_message("dup-1", "@c1", base, "war update")
+    db.save_message("dup-1", "@c1", base, "war update")  # same id, should be ignored
+
+    start = base - dt.timedelta(minutes=1)
+    end = base + dt.timedelta(minutes=1)
+    app_config.storage.rag_keywords = ["war"]
+
+    rows = db.get_relevant_messages_for_range(start, end, max_docs=10)
+    assert len(rows) == 1  # must not be 2
 
 
 # ---------------------------------------------------------------------------
