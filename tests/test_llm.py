@@ -159,6 +159,31 @@ def test_llm_summarize_strips_markdown_fence(app_config):
     assert result == "Summary"
 
 
+def test_llm_summarize_handles_none_content_gracefully(app_config):
+    """API can legally return content=None for tool-call responses.
+
+    The old assert would be silently stripped under python -O, turning a
+    predictable ValueError into an AttributeError on .strip().  The explicit
+    guard must remain effective regardless of the optimisation flag.
+    """
+    messages = [Message(channel="@c1", text="news")]
+    day = dt.date(2024, 1, 1)
+
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = None
+
+    with patch("teledigest.llm.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = mock_response
+
+        result = llm.llm_summarize(day, messages)
+
+    assert "Failed to generate" in result
+    assert "2024-01-01" in result
+    assert "no content" in result.lower()
+
+
 def test_llm_summarize_handles_api_error_gracefully(app_config):
     messages = [Message(channel="@c1", text="news")]
     day = dt.date(2024, 1, 1)

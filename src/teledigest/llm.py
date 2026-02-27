@@ -59,7 +59,8 @@ def llm_summarize(day: dt.date, messages) -> str:
         )
 
         content = response.choices[0].message.content
-        assert content is not None
+        if content is None:
+            raise ValueError("OpenAI returned no content")
         summary = content.strip()
         summary = strip_markdown_fence(summary)
 
