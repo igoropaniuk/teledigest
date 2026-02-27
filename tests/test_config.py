@@ -303,6 +303,59 @@ def test_init_config_and_get_config_roundtrip(
     assert app_cfg.logging.level == "DEBUG"
 
 
+def test_init_config_second_call_with_explicit_path_emits_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A second init_config() with an explicit path must not silently discard it.
+
+    Callers that pass an explicit path expect it to take effect.  Silently
+    returning the cached config makes misconfigured test setups and multi-
+    process deployments very hard to debug.  The warning makes the "first
+    caller wins" contract visible in logs.
+    """
+    # Provide an already-loaded config instance
+    dummy_cfg = config._parse_app_config(
+        {
+            "telegram": {"api_id": 1, "api_hash": "h", "bot_token": "t"},
+            "bot": {"channels": ["@c"], "summary_target": "@d"},
+            "llm": {"api_key": "sk-x"},
+        }
+    )
+    monkeypatch.setattr(config, "_CONFIG", dummy_cfg, raising=False)
+
+    second_path = tmp_path / "other.toml"
+
+    with caplog.at_level("WARNING", logger="teledigest"):
+        result = config.init_config(explicit_path=second_path)
+
+    # The cached config is still returned
+    assert result is dummy_cfg
+    # The caller is warned that their path was ignored
+    assert any("ignored" in r.message for r in caplog.records)
+    assert any(str(second_path) in r.message for r in caplog.records)
+
+
+def test_init_config_second_call_without_explicit_path_is_silent(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Re-calling init_config() with no path is the normal 'get current config'
+    pattern and must not produce any warnings."""
+    dummy_cfg = config._parse_app_config(
+        {
+            "telegram": {"api_id": 1, "api_hash": "h", "bot_token": "t"},
+            "bot": {"channels": ["@c"], "summary_target": "@d"},
+            "llm": {"api_key": "sk-x"},
+        }
+    )
+    monkeypatch.setattr(config, "_CONFIG", dummy_cfg, raising=False)
+
+    with caplog.at_level("WARNING", logger="teledigest"):
+        result = config.init_config()
+
+    assert result is dummy_cfg
+    assert caplog.records == []
+
+
 def test_get_config_raises_if_not_initialized(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "_CONFIG", None, raising=False)
 
