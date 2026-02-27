@@ -199,6 +199,12 @@ def init_config(
 
     global _CONFIG
     if _CONFIG is not None:
+        if explicit_path is not None:
+            log.warning(
+                "init_config() called again with explicit_path=%s, "
+                "but config is already loaded; the new path will be ignored.",
+                explicit_path,
+            )
         return _CONFIG
 
     config_path = _locate_config_path(explicit_path)
