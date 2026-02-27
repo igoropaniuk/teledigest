@@ -80,7 +80,7 @@ def main() -> int:
         log.info("Shutting down via KeyboardInterrupt")
         return 130
     except Exception as e:
-        if getattr(args, "debug", False):
+        if args.debug:
             traceback.print_exc()
         else:
             # Keep stderr clean by default (no full backtrace)
