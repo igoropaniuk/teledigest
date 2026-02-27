@@ -247,6 +247,142 @@ def test_get_relevant_messages_for_range_uses_fts_when_available(
 
 
 # ---------------------------------------------------------------------------
+# get_messages_for_day
+# ---------------------------------------------------------------------------
+
+
+def test_get_messages_for_day_returns_only_that_days_messages(
+    app_config: cfg.AppConfig,
+) -> None:
+    db.init_db()
+
+    day1 = dt.date(2024, 1, 1)
+    base1 = dt.datetime.combine(day1, dt.time(10, 0), tzinfo=dt.timezone.utc)
+    db.save_message("d1m1", "@c1", base1, "day one message")
+
+    day2 = dt.date(2024, 1, 2)
+    base2 = dt.datetime.combine(day2, dt.time(10, 0), tzinfo=dt.timezone.utc)
+    db.save_message("d2m1", "@c1", base2, "day two message")
+
+    result = db.get_messages_for_day(day1)
+    assert len(result) == 1
+    assert result[0].text == "day one message"
+
+
+def test_get_messages_for_day_limit_is_forwarded(app_config: cfg.AppConfig) -> None:
+    db.init_db()
+
+    day = dt.date(2024, 3, 1)
+    base = dt.datetime.combine(day, dt.time(9, 0), tzinfo=dt.timezone.utc)
+    for i in range(5):
+        db.save_message(f"lim-{i}", "@c", base + dt.timedelta(minutes=i), f"msg {i}")
+
+    result = db.get_messages_for_day(day, limit=2)
+    assert len(result) == 2
+
+
+# ---------------------------------------------------------------------------
+# get_messages_last_24h
+# ---------------------------------------------------------------------------
+
+
+def test_get_messages_last_24h_includes_recent_and_excludes_old(
+    app_config: cfg.AppConfig,
+) -> None:
+    db.init_db()
+
+    now = dt.datetime.now(dt.timezone.utc)
+    db.save_message("recent", "@c1", now - dt.timedelta(hours=1), "recent message")
+    db.save_message("old", "@c1", now - dt.timedelta(hours=25), "old message")
+
+    result = db.get_messages_last_24h()
+    texts = [m.text for m in result]
+    assert "recent message" in texts
+    assert "old message" not in texts
+
+
+def test_get_messages_last_24h_limit_is_forwarded(app_config: cfg.AppConfig) -> None:
+    db.init_db()
+
+    now = dt.datetime.now(dt.timezone.utc)
+    for i in range(5):
+        db.save_message(f"24h-{i}", "@c", now - dt.timedelta(hours=i), f"msg {i}")
+
+    result = db.get_messages_last_24h(limit=2)
+    assert len(result) == 2
+
+
+# ---------------------------------------------------------------------------
+# get_relevant_messages_for_day
+# ---------------------------------------------------------------------------
+
+
+def test_get_relevant_messages_for_day_falls_back_when_no_keywords(
+    app_config: cfg.AppConfig,
+) -> None:
+    db.init_db()
+    app_config.storage.rag_keywords = []
+
+    day = dt.date(2024, 5, 1)
+    base = dt.datetime.combine(day, dt.time(10, 0), tzinfo=dt.timezone.utc)
+    db.save_message("rfday-1", "@c1", base, "some content")
+
+    result = db.get_relevant_messages_for_day(day)
+    assert len(result) == 1
+
+
+@pytest.mark.skipif(not supports_fts5(), reason="sqlite3 FTS5 is not available")
+def test_get_relevant_messages_for_day_filters_by_keywords(
+    app_config: cfg.AppConfig,
+) -> None:
+    db.init_db()
+    app_config.storage.rag_keywords = ["war"]
+
+    day = dt.date(2024, 5, 2)
+    base = dt.datetime.combine(day, dt.time(10, 0), tzinfo=dt.timezone.utc)
+    db.save_message("rd-1", "@c1", base, "war update")
+    db.save_message("rd-2", "@c1", base + dt.timedelta(minutes=1), "weather forecast")
+
+    result = db.get_relevant_messages_for_day(day)
+    assert len(result) == 1
+    assert "war" in result[0].text
+
+
+# ---------------------------------------------------------------------------
+# get_relevant_messages_last_24h
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not supports_fts5(), reason="sqlite3 FTS5 is not available")
+def test_get_relevant_messages_last_24h_filters_by_keywords(
+    app_config: cfg.AppConfig,
+) -> None:
+    db.init_db()
+    app_config.storage.rag_keywords = ["war"]
+
+    now = dt.datetime.now(dt.timezone.utc)
+    db.save_message("r24-1", "@c1", now - dt.timedelta(hours=1), "war news today")
+    db.save_message("r24-2", "@c1", now - dt.timedelta(hours=2), "sunny weather")
+
+    result = db.get_relevant_messages_last_24h(max_docs=10)
+    assert len(result) == 1
+    assert "war" in result[0].text
+
+
+def test_get_relevant_messages_last_24h_falls_back_when_no_keywords(
+    app_config: cfg.AppConfig,
+) -> None:
+    db.init_db()
+    app_config.storage.rag_keywords = []
+
+    now = dt.datetime.now(dt.timezone.utc)
+    db.save_message("fb-1", "@c1", now - dt.timedelta(hours=1), "anything")
+
+    result = db.get_relevant_messages_last_24h(max_docs=10)
+    assert len(result) == 1
+
+
+# ---------------------------------------------------------------------------
 # get_relevant_messages_for_range – fallback path when FTS fails
 # ---------------------------------------------------------------------------
 
