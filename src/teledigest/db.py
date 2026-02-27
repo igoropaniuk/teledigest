@@ -8,6 +8,9 @@ from typing import Iterator, NamedTuple
 from .config import get_config, log
 from .text_sanitize import sanitize_text
 
+# All Python types that SQLite3 accepts natively as query parameters.
+_SqlParam = str | int | float | bytes | None
+
 
 class DatabaseError(Exception):
     """Database operation errors."""
@@ -181,7 +184,7 @@ def get_messages_for_range(
                 ORDER BY date ASC
             """
 
-            params: list[str | int] = [start_iso, end_iso]
+            params: list[_SqlParam] = [start_iso, end_iso]
 
             if limit is not None:
                 sql += " LIMIT ?"
