@@ -182,7 +182,13 @@ def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
 
     # --- logging ---
     logging_raw = raw.get("logging") or {}
-    logging_cfg = LoggingConfig(level=str(logging_raw.get("level", "INFO")))
+    logging_level = str(logging_raw.get("level", "INFO"))
+    if not isinstance(getattr(logging, logging_level.upper(), None), int):
+        raise ValueError(
+            f"Config [logging].level is invalid: {logging_level!r}. "
+            "Valid values are: DEBUG, INFO, WARNING, ERROR, CRITICAL."
+        )
+    logging_cfg = LoggingConfig(level=logging_level)
 
     return AppConfig(
         telegram=telegram,
@@ -231,7 +237,7 @@ def _configure_logging(logging_cfg: LoggingConfig) -> None:
     """
     Basic logging setup based on config.
     """
-    level = getattr(logging, logging_cfg.level.upper(), logging.INFO)
+    level = getattr(logging, logging_cfg.level.upper())
     logging.basicConfig(
         level=level,
         format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
