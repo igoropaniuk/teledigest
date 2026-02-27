@@ -217,6 +217,43 @@ def test_parse_app_config_llm_base_url_empty_str() -> None:
 
 
 # ---------------------------------------------------------------------------
+# _parse_app_config – logging.level validation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad_level", ["TRACE", "VERBOSE", "ALL", "WARN1", ""])
+def test_parse_app_config_invalid_logging_level_raises(bad_level: str) -> None:
+    raw = _make_minimal_raw()
+    raw["logging"] = {"level": bad_level}
+
+    with pytest.raises(ValueError) as exc:
+        config._parse_app_config(raw)
+
+    assert "[logging].level" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "good_level", ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+)
+def test_parse_app_config_valid_logging_levels_accepted(good_level: str) -> None:
+    raw = _make_minimal_raw()
+    raw["logging"] = {"level": good_level}
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.logging.level == good_level
+
+
+def test_parse_app_config_logging_level_is_case_insensitive() -> None:
+    raw = _make_minimal_raw()
+    raw["logging"] = {"level": "debug"}
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.logging.level == "debug"
+
+
+# ---------------------------------------------------------------------------
 # _locate_config_path / _default_config_path
 # ---------------------------------------------------------------------------
 
