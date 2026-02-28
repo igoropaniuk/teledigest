@@ -42,6 +42,7 @@ def _make_app_config() -> cfg.AppConfig:
 def app_config(monkeypatch) -> cfg.AppConfig:
     app_cfg = _make_app_config()
     monkeypatch.setattr(cfg, "_CONFIG", app_cfg, raising=False)
+    monkeypatch.setattr(llm, "_openai_client", None)
     return app_cfg
 
 
