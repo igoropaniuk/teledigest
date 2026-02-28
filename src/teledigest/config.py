@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import tomllib
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -44,6 +45,26 @@ class BotConfig:
     summary_hour: int = 21
     summary_minute: int = 0
     allowed_users_raw: str = ""  # e.g. "@user1,12345678"
+
+    def _raw_parts(self) -> List[str]:
+        return [x.strip() for x in self.allowed_users_raw.split(",") if x.strip()]
+
+    @cached_property
+    def allowed_user_ids(self) -> frozenset:
+        result: set[int] = set()
+        for x in self._raw_parts():
+            if not x.startswith("@"):
+                try:
+                    result.add(int(x))
+                except ValueError:
+                    log.warning("Invalid user ID in allowed_users: %r", x)
+        return frozenset(result)
+
+    @cached_property
+    def allowed_user_names(self) -> frozenset:
+        return frozenset(
+            x.lstrip("@").lower() for x in self._raw_parts() if x.startswith("@")
+        )
 
 
 @dataclass

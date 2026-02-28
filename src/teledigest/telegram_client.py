@@ -80,33 +80,16 @@ async def channel_message_handler(event):
 
 async def is_user_allowed(event) -> bool:
     cfg = get_config()
-    allowed_user_names = set()
-    allowed_user_ids = set()
-
-    for item in [x.strip() for x in cfg.bot.allowed_users_raw.split(",") if x.strip()]:
-        if item.startswith("@"):
-            allowed_user_names.add(item.lstrip("@").lower())
-        else:
-            try:
-                allowed_user_ids.add(int(item))
-            except ValueError:
-                log.warning("Invalid TG_ALLOWED_USERS_RAW entry (ignored): %s", item)
 
     # If no restriction configured, allow everyone
-    if not allowed_user_ids and not allowed_user_names:
+    if not cfg.bot.allowed_user_ids and not cfg.bot.allowed_user_names:
         return True
 
     sender = await event.get_sender()
-    user_id = event.sender_id
-    username = getattr(sender, "username", None)
-    username_norm = username.lower() if username else None
-
-    if user_id in allowed_user_ids:
-        return True
-    if username_norm and username_norm in allowed_user_names:
-        return True
-
-    return False
+    username = (getattr(sender, "username", None) or "").lower() if sender else ""
+    return event.sender_id in cfg.bot.allowed_user_ids or (
+        bool(username) and username in cfg.bot.allowed_user_names
+    )
 
 
 async def help_command(event):
