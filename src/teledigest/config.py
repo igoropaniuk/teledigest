@@ -115,15 +115,10 @@ def _locate_config_path(
     return config_path
 
 
-def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
-    """
-    Convert the raw TOML dict into typed AppConfig.
-    Raises KeyError/TypeError if required sections/fields are missing.
-    """
-    # --- telegram ---
+def _parse_telegram(raw: Dict[str, Any]) -> TelegramConfig:
     tg_raw = raw.get("telegram") or {}
     try:
-        telegram = TelegramConfig(
+        return TelegramConfig(
             api_id=int(tg_raw["api_id"]),
             api_hash=str(tg_raw["api_hash"]),
             bot_token=str(tg_raw["bot_token"]),
@@ -132,7 +127,8 @@ def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
     except KeyError as e:
         raise KeyError(f"Missing required [telegram] field in config: {e!s}") from e
 
-    # --- bot ---
+
+def _parse_bot(raw: Dict[str, Any]) -> BotConfig:
     bot_raw = raw.get("bot") or {}
     channels = bot_raw.get("channels") or []
     if not isinstance(channels, list) or not channels:
@@ -149,20 +145,23 @@ def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
 
     if not bot.summary_target:
         raise ValueError("Config [bot].summary_target is required.")
-
     if not (0 <= bot.summary_hour <= 23):
         raise ValueError("Config [bot].summary_hour must be between 0 and 23.")
     if not (0 <= bot.summary_minute <= 59):
         raise ValueError("Config [bot].summary_minute must be between 0 and 59.")
 
-    # --- storage ---
+    return bot
+
+
+def _parse_storage(raw: Dict[str, Any]) -> StorageConfig:
     storage_raw = raw.get("storage") or {}
     rag_raw = storage_raw.get("rag") or {}
     db_path_str = storage_raw.get("db_path", "data/messages_fts.db")
     keywords = rag_raw.get("keywords") or []
-    storage = StorageConfig(db_path=Path(db_path_str), rag_keywords=keywords)
+    return StorageConfig(db_path=Path(db_path_str), rag_keywords=keywords)
 
-    # --- llm ----
+
+def _parse_llm(raw: Dict[str, Any]) -> LLMConfig:
     llm_raw = raw.get("llm") or {}
     prompts_raw = llm_raw.get("prompts") or {}
     llm = LLMConfig(
@@ -176,26 +175,34 @@ def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
 
     if not (0.0 <= llm.temperature <= 2.0):
         raise ValueError("Config [llm].temperature must be between 0.0 and 2.0.")
-
     if not llm.api_key:
         raise ValueError("Config [llm].api_key is required.")
 
-    # --- logging ---
+    return llm
+
+
+def _parse_logging(raw: Dict[str, Any]) -> LoggingConfig:
     logging_raw = raw.get("logging") or {}
-    logging_level = str(logging_raw.get("level", "INFO"))
-    if not isinstance(getattr(logging, logging_level.upper(), None), int):
+    level = str(logging_raw.get("level", "INFO"))
+    if not isinstance(getattr(logging, level.upper(), None), int):
         raise ValueError(
-            f"Config [logging].level is invalid: {logging_level!r}. "
+            f"Config [logging].level is invalid: {level!r}. "
             "Valid values are: DEBUG, INFO, WARNING, ERROR, CRITICAL."
         )
-    logging_cfg = LoggingConfig(level=logging_level)
+    return LoggingConfig(level=level)
 
+
+def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
+    """
+    Convert the raw TOML dict into typed AppConfig.
+    Raises KeyError/ValueError if required sections/fields are missing or invalid.
+    """
     return AppConfig(
-        telegram=telegram,
-        bot=bot,
-        llm=llm,
-        storage=storage,
-        logging=logging_cfg,
+        telegram=_parse_telegram(raw),
+        bot=_parse_bot(raw),
+        llm=_parse_llm(raw),
+        storage=_parse_storage(raw),
+        logging=_parse_logging(raw),
     )
 
 
