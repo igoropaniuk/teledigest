@@ -43,7 +43,9 @@ async def summary_scheduler():
                 now.isoformat(),
                 today.isoformat(),
             )
-            messages = get_relevant_messages_last_24h(max_docs=200)
+            messages = get_relevant_messages_last_24h(
+                max_docs=get_config().llm.max_messages
+            )
 
             if messages:
                 summary = llm_summarize(today, messages)

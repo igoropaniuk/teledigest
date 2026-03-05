@@ -40,6 +40,7 @@ class LLMConfig:
     user_prompt: str
     base_url: Optional[str] = None
     temperature: float = 0.4
+    max_messages: int = 1000
     system_brief_prompt: str = field(
         default_factory=lambda: _DEFAULT_SYSTEM_BRIEF_PROMPT
     )
@@ -209,6 +210,7 @@ def _parse_llm(raw: Dict[str, Any]) -> LLMConfig:
         model=str(llm_raw.get("model", "gpt-5.1")),
         system_prompt=str(prompts_raw.get("system", _DEFAULT_SYSTEM_PROMPT)),
         user_prompt=str(prompts_raw.get("user", _DEFAULT_USER_PROMPT)),
+        max_messages=int(prompts_raw.get("max_messages", 1000)),
         system_brief_prompt=str(
             prompts_raw.get("system_brief", _DEFAULT_SYSTEM_BRIEF_PROMPT)
         ),

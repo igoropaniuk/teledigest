@@ -27,6 +27,7 @@ def _make_app_config() -> cfg.AppConfig:
         user_prompt="Summarize messages for {DAY}:\n\n{MESSAGES}",
         system_brief_prompt="You are a brief assistant.",
         user_brief_prompt="Brief summary for {DAY}:\n\n{DIGEST}",
+        max_messages=1000,
         temperature=0.4,
     )
     storage = cfg.StorageConfig(rag_keywords=[], db_path=Path(":memory:"))

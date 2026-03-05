@@ -120,7 +120,7 @@ async def today_command(event):
         day.isoformat(),
     )
 
-    messages = get_relevant_messages_last_24h(max_docs=200)
+    messages = get_relevant_messages_last_24h(max_docs=get_config().llm.max_messages)
 
     if not messages:
         await event.reply("No messages available for the last 24 hours.")
@@ -251,7 +251,7 @@ async def status_command(event):
         cfg.bot.time_zone,
     )
 
-    relevant = get_relevant_messages_last_24h(max_docs=200)
+    relevant = get_relevant_messages_last_24h(max_docs=get_config().llm.max_messages)
     parsed = get_messages_last_24h()
 
     # A light sanity check for prompt size (useful for troubleshooting)

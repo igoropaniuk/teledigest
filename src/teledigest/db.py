@@ -232,7 +232,7 @@ def build_fts_query() -> str | None:
 def get_relevant_messages_for_range(
     start: dt.datetime,
     end: dt.datetime,
-    max_docs: int = 200,
+    max_docs: int = 1000,
 ) -> list[Message]:
     """
     RAG-style retrieval using FTS index.
@@ -287,7 +287,7 @@ def get_relevant_messages_for_range(
     return get_messages_for_range(start, end, limit=max_docs)
 
 
-def get_relevant_messages_for_day(day: dt.date, max_docs: int = 200) -> list[Message]:
+def get_relevant_messages_for_day(day: dt.date, max_docs: int = 1000) -> list[Message]:
     """
     Backwards-compatible wrapper using a calendar day.
     """
@@ -310,7 +310,7 @@ def get_messages_last_24h(limit: int | None = None) -> list[Message]:
     return get_messages_for_range(start, end, limit)
 
 
-def get_relevant_messages_last_24h(max_docs: int = 200) -> list[Message]:
+def get_relevant_messages_last_24h(max_docs: int = 1000) -> list[Message]:
     """
     RAG-style retrieval for the last 24 hours (rolling window), in UTC.
     """
