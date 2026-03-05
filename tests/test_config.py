@@ -400,3 +400,107 @@ def test_get_config_raises_if_not_initialized(monkeypatch: pytest.MonkeyPatch) -
         config.get_config()
 
     assert "Config not initialized" in str(exc.value)
+
+
+# ---------------------------------------------------------------------------
+# summary_brief
+# ---------------------------------------------------------------------------
+
+
+def test_parse_app_config_summary_brief_defaults_to_false() -> None:
+    raw = _make_minimal_raw()
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.bot.summary_brief is False
+
+
+def test_parse_app_config_summary_brief_true() -> None:
+    raw = _make_minimal_raw()
+    raw["bot"]["summary_brief"] = True
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.bot.summary_brief is True
+
+
+# ---------------------------------------------------------------------------
+# brief prompts
+# ---------------------------------------------------------------------------
+
+
+def test_parse_app_config_brief_prompts_default_to_builtins() -> None:
+    raw = _make_minimal_raw()
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.llm.system_brief_prompt == config._DEFAULT_SYSTEM_BRIEF_PROMPT
+    assert app_cfg.llm.user_brief_prompt == config._DEFAULT_USER_BRIEF_PROMPT
+
+
+def test_parse_app_config_brief_prompts_custom() -> None:
+    raw = _make_minimal_raw()
+    raw["llm"]["prompts"] = {
+        "system": "SYS",
+        "user": "USR {DAY} {MESSAGES}",
+        "system_brief": "SYS_BRIEF",
+        "user_brief": "USR_BRIEF {DIGEST}",
+    }
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.llm.system_brief_prompt == "SYS_BRIEF"
+    assert app_cfg.llm.user_brief_prompt == "USR_BRIEF {DIGEST}"
+
+
+def test_parse_app_config_brief_prompts_partial_override() -> None:
+    """Only system_brief is overridden; user_brief should keep the default."""
+    raw = _make_minimal_raw()
+    raw["llm"]["prompts"] = {"system_brief": "CUSTOM_SYSTEM_BRIEF"}
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.llm.system_brief_prompt == "CUSTOM_SYSTEM_BRIEF"
+    assert app_cfg.llm.user_brief_prompt == config._DEFAULT_USER_BRIEF_PROMPT
+
+
+# ---------------------------------------------------------------------------
+# TelegraphConfig / _parse_telegraph
+# ---------------------------------------------------------------------------
+
+
+def test_parse_telegraph_defaults_when_section_absent() -> None:
+    raw = _make_minimal_raw()
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.telegraph.author_name == "TeleDigest"
+    assert app_cfg.telegraph.author_url == ""
+    assert app_cfg.telegraph.access_token is None
+
+
+def test_parse_telegraph_custom_author_name() -> None:
+    raw = _make_minimal_raw()
+    raw["telegraph"] = {"author_name": "My Bot"}
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.telegraph.author_name == "My Bot"
+
+
+def test_parse_telegraph_explicit_access_token() -> None:
+    raw = _make_minimal_raw()
+    raw["telegraph"] = {"access_token": "tok123"}
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.telegraph.access_token == "tok123"
+
+
+def test_parse_telegraph_access_token_absent_is_none() -> None:
+    raw = _make_minimal_raw()
+    raw["telegraph"] = {"author_name": "Bot"}  # no access_token key
+
+    app_cfg = config._parse_app_config(raw)
+
+    assert app_cfg.telegraph.access_token is None
