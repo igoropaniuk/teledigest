@@ -25,6 +25,8 @@ def _make_app_config() -> cfg.AppConfig:
         api_key="sk-test",
         system_prompt="You are a helpful assistant.",
         user_prompt="Summarize messages for {DAY}:\n\n{MESSAGES}",
+        system_brief_prompt="You are a brief assistant.",
+        user_brief_prompt="Brief summary for {DAY}:\n\n{DIGEST}",
         temperature=0.4,
     )
     storage = cfg.StorageConfig(rag_keywords=[], db_path=Path(":memory:"))
@@ -238,3 +240,98 @@ def test_llm_summarize_passes_system_and_user_messages(app_config):
     msgs_arg = call_kwargs.kwargs["messages"]
     roles = [m["role"] for m in msgs_arg]
     assert roles == ["system", "user"]
+
+
+# ---------------------------------------------------------------------------
+# llm_summarize_brief
+# ---------------------------------------------------------------------------
+
+
+def test_llm_summarize_brief_returns_stripped_content(app_config):
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = "  Brief digest  "
+
+    with patch("teledigest.llm.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = mock_response
+
+        result = llm.llm_summarize_brief(dt.date(2025, 1, 15), "Full digest text")
+
+    assert result == "Brief digest"
+
+
+def test_llm_summarize_brief_substitutes_digest_placeholder(app_config):
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = "ok"
+
+    with patch("teledigest.llm.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = mock_response
+
+        llm.llm_summarize_brief(dt.date(2025, 1, 15), "THE FULL DIGEST")
+
+    call_kwargs = mock_client.chat.completions.create.call_args
+    msgs_arg = call_kwargs.kwargs["messages"]
+    user_content = next(m["content"] for m in msgs_arg if m["role"] == "user")
+    assert "THE FULL DIGEST" in user_content
+    assert "2025-01-15" in user_content
+    assert "{DIGEST}" not in user_content
+    assert "{DAY}" not in user_content
+
+
+def test_llm_summarize_brief_sends_system_and_user_roles(app_config):
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = "brief"
+
+    with patch("teledigest.llm.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = mock_response
+
+        llm.llm_summarize_brief(dt.date(2025, 1, 15), "digest")
+
+    call_kwargs = mock_client.chat.completions.create.call_args
+    roles = [m["role"] for m in call_kwargs.kwargs["messages"]]
+    assert roles == ["system", "user"]
+
+
+def test_llm_summarize_brief_strips_markdown_fence(app_config):
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = "```\nBrief\n```"
+
+    with patch("teledigest.llm.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = mock_response
+
+        result = llm.llm_summarize_brief(dt.date(2025, 1, 15), "digest")
+
+    assert result == "Brief"
+
+
+def test_llm_summarize_brief_handles_none_content(app_config):
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = None
+
+    with patch("teledigest.llm.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = mock_response
+
+        result = llm.llm_summarize_brief(dt.date(2025, 1, 15), "digest")
+
+    assert "Failed to generate brief" in result
+
+
+def test_llm_summarize_brief_handles_api_error(app_config):
+    with patch("teledigest.llm.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception("timeout")
+
+        result = llm.llm_summarize_brief(dt.date(2025, 1, 15), "digest")
+
+    assert "Failed to generate brief" in result
+    assert "timeout" in result

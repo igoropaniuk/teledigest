@@ -25,6 +25,11 @@ _DEFAULT_SYSTEM_PROMPT = """You are a helpful assistant that summarizes Telegram
 _DEFAULT_USER_PROMPT = (
     """Summarize the following Telegram messages for {DAY}:\n\n{MESSAGES}"""
 )
+_DEFAULT_SYSTEM_BRIEF_PROMPT = """You are a Telegram digest bot. Create a very concise summary suitable for a single Telegram message."""
+_DEFAULT_USER_BRIEF_PROMPT = (
+    "Create a brief summary (max 4000 characters including HTML)"
+    " of the following digest:\n\n{DIGEST}"
+)
 
 
 @dataclass
@@ -35,6 +40,17 @@ class LLMConfig:
     user_prompt: str
     base_url: Optional[str] = None
     temperature: float = 0.4
+    system_brief_prompt: str = field(
+        default_factory=lambda: _DEFAULT_SYSTEM_BRIEF_PROMPT
+    )
+    user_brief_prompt: str = field(default_factory=lambda: _DEFAULT_USER_BRIEF_PROMPT)
+
+
+@dataclass
+class TelegraphConfig:
+    author_name: str = "TeleDigest"
+    author_url: str = ""
+    access_token: Optional[str] = None
 
 
 @dataclass
@@ -44,6 +60,7 @@ class BotConfig:
     time_zone: str = "Europe/Warsaw"
     summary_hour: int = 21
     summary_minute: int = 0
+    summary_brief: bool = False
     allowed_users_raw: str = ""  # e.g. "@user1,12345678"
 
     def _raw_parts(self) -> List[str]:
@@ -85,6 +102,7 @@ class AppConfig:
     llm: LLMConfig
     storage: StorageConfig = field(default_factory=lambda: StorageConfig([]))
     logging: LoggingConfig = field(default_factory=lambda: LoggingConfig())
+    telegraph: TelegraphConfig = field(default_factory=TelegraphConfig)
 
 
 _CONFIG: Optional[AppConfig] = None
@@ -160,6 +178,7 @@ def _parse_bot(raw: Dict[str, Any]) -> BotConfig:
         summary_target=str(bot_raw.get("summary_target", "")).strip(),
         summary_hour=int(bot_raw.get("summary_hour", 21)),
         summary_minute=int(bot_raw.get("summary_minute", 0)),
+        summary_brief=bool(bot_raw.get("summary_brief", False)),
         allowed_users_raw=str(bot_raw.get("allowed_users", "")),
         time_zone=str(bot_raw.get("time_zone", "Europe/Warsaw")),
     )
@@ -190,6 +209,12 @@ def _parse_llm(raw: Dict[str, Any]) -> LLMConfig:
         model=str(llm_raw.get("model", "gpt-5.1")),
         system_prompt=str(prompts_raw.get("system", _DEFAULT_SYSTEM_PROMPT)),
         user_prompt=str(prompts_raw.get("user", _DEFAULT_USER_PROMPT)),
+        system_brief_prompt=str(
+            prompts_raw.get("system_brief", _DEFAULT_SYSTEM_BRIEF_PROMPT)
+        ),
+        user_brief_prompt=str(
+            prompts_raw.get("user_brief", _DEFAULT_USER_BRIEF_PROMPT)
+        ),
         base_url=str(llm_raw.get("base_url", "")) or None,
         temperature=float(llm_raw.get("temperature", 0.4)),
     )
@@ -213,6 +238,17 @@ def _parse_logging(raw: Dict[str, Any]) -> LoggingConfig:
     return LoggingConfig(level=level)
 
 
+def _parse_telegraph(raw: Dict[str, Any]) -> TelegraphConfig:
+    tph_raw = raw.get("telegraph") or {}
+    return TelegraphConfig(
+        author_name=str(tph_raw.get("author_name", "TeleDigest")),
+        author_url=str(tph_raw.get("author_url", "")),
+        access_token=(
+            str(tph_raw["access_token"]) if tph_raw.get("access_token") else None
+        ),
+    )
+
+
 def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
     """
     Convert the raw TOML dict into typed AppConfig.
@@ -224,6 +260,7 @@ def _parse_app_config(raw: Dict[str, Any]) -> AppConfig:
         llm=_parse_llm(raw),
         storage=_parse_storage(raw),
         logging=_parse_logging(raw),
+        telegraph=_parse_telegraph(raw),
     )
 
 

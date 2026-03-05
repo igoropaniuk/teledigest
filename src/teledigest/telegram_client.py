@@ -14,8 +14,9 @@ from telethon.tl.functions.channels import JoinChannelRequest
 
 from .config import AppConfig, get_config, log
 from .db import get_messages_last_24h, get_relevant_messages_last_24h, save_message
-from .llm import build_prompt, llm_summarize
+from .llm import build_prompt, llm_summarize, llm_summarize_brief
 from .message_utils import reply_long
+from .telegraph import post_to_telegraph
 
 user_client: TelegramClient | None = None
 bot_client: TelegramClient | None = None
@@ -121,11 +122,25 @@ async def today_command(event):
 
     messages = get_relevant_messages_last_24h(max_docs=200)
 
-    if messages:
-        summary = llm_summarize(day, messages)
-        await reply_long(event, summary, parse_mode="html")
-    else:
+    if not messages:
         await event.reply("No messages available for the last 24 hours.")
+        return
+
+    summary = llm_summarize(day, messages)
+
+    cfg = get_config()
+    if cfg.bot.summary_brief:
+        telegraph_url = post_to_telegraph(
+            title=f"Digest {day.isoformat()}", html=summary
+        )
+        brief = llm_summarize_brief(day, summary)
+        outgoing = (
+            f"{brief}\n\n" f'<a href="{telegraph_url}">Full digest on Telegraph</a>'
+        )
+    else:
+        outgoing = summary
+
+    await reply_long(event, outgoing, parse_mode="html")
 
 
 async def auth_start_command(event):

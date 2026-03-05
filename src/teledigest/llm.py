@@ -51,6 +51,35 @@ def build_prompt(day: dt.date, messages):
     return system, user
 
 
+def llm_summarize_brief(day: dt.date, digest: str) -> str:
+    """Call the LLM to produce a compact brief from an already-generated digest."""
+    client = _get_client()
+    cfg = get_config()
+    system = cfg.llm.system_brief_prompt
+    user = cfg.llm.user_brief_prompt.format(DAY=day.isoformat(), DIGEST=digest)
+    log.info("Calling OpenAI for brief summary...")
+
+    try:
+        response = client.chat.completions.create(
+            model=cfg.llm.model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=cfg.llm.temperature,
+        )
+        content = response.choices[0].message.content
+        if content is None:
+            raise ValueError("OpenAI returned no content")
+        brief = strip_markdown_fence(content.strip())
+        log.info("Received brief summary from OpenAI (%d chars).", len(brief))
+        return brief
+
+    except Exception as e:
+        log.exception("OpenAI API error for brief: %s", e)
+        return f"Failed to generate brief summary.\n\nError: {e}"
+
+
 def llm_summarize(day: dt.date, messages) -> str:
     client = _get_client()
     system, user = build_prompt(day, messages)

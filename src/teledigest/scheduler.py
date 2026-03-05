@@ -6,9 +6,10 @@ from telethon.errors import RPCError
 
 from .config import get_config, log
 from .db import get_relevant_messages_last_24h
-from .llm import llm_summarize
+from .llm import llm_summarize, llm_summarize_brief
 from .message_utils import send_message_long
 from .telegram_client import get_bot_client
+from .telegraph import post_to_telegraph
 
 
 async def summary_scheduler():
@@ -47,13 +48,28 @@ async def summary_scheduler():
             if messages:
                 summary = llm_summarize(today, messages)
             else:
-                summary = f"No messages to summarize for the last 24 hours (labelled as {today.isoformat()})."
+                summary = (
+                    f"No messages to summarize for the last 24 hours"
+                    f" (labelled as {today.isoformat()})."
+                )
 
             try:
+                if cfg.bot.summary_brief and messages:
+                    telegraph_url = post_to_telegraph(
+                        title=f"Digest {today.isoformat()}", html=summary
+                    )
+                    brief = llm_summarize_brief(today, summary)
+                    outgoing = (
+                        f"{brief}\n\n"
+                        f'<a href="{telegraph_url}">Full digest on Telegraph</a>'
+                    )
+                else:
+                    outgoing = summary
+
                 await send_message_long(
                     bot_client,
                     summary_target,
-                    summary,
+                    outgoing,
                     parse_mode="html",
                 )
                 log.info("Daily summary sent to %s", summary_target)
