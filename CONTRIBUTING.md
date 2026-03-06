@@ -67,6 +67,7 @@ poetry run isort .
 When adding or changing behavior, please include unit tests.
 
 Guidelines:
+
 - Prefer **pure / deterministic** functions and small units.
 - Mock external services (Telegram network calls, OpenAI/LLM backends).
 - Tests should not require network access.
@@ -130,6 +131,7 @@ optional body
 ```
 
 Common types:
+
 - `feat` - new feature
 - `fix` - bug fix
 - `docs` - documentation changes
