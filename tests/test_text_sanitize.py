@@ -49,3 +49,16 @@ def test_strip_markdown_fence_missing_closing_fence() -> None:
     # and only strips the last line if it is exactly ```
     raw = "```\nHello\nWorld\n"
     assert ts.strip_markdown_fence(raw) == "Hello\nWorld"
+
+
+# ---------------------------------------------------------------------------
+# Edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_sanitize_text_empty_string_returns_empty() -> None:
+    assert ts.sanitize_text("") == ""
+
+
+def test_strip_markdown_fence_empty_string_returns_original() -> None:
+    assert ts.strip_markdown_fence("") == ""
