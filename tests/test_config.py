@@ -504,3 +504,71 @@ def test_parse_telegraph_access_token_absent_is_none() -> None:
     app_cfg = config._parse_app_config(raw)
 
     assert app_cfg.telegraph.access_token is None
+
+
+# ---------------------------------------------------------------------------
+# _parse_bot – summary_hour / summary_minute range validation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad_hour", [-1, 24, 100])
+def test_parse_app_config_summary_hour_out_of_range_raises(bad_hour: int) -> None:
+    raw = _make_minimal_raw()
+    raw["bot"]["summary_hour"] = bad_hour
+
+    with pytest.raises(ValueError) as exc:
+        config._parse_app_config(raw)
+
+    assert "summary_hour" in str(exc.value)
+
+
+@pytest.mark.parametrize("bad_minute", [-1, 60, 100])
+def test_parse_app_config_summary_minute_out_of_range_raises(bad_minute: int) -> None:
+    raw = _make_minimal_raw()
+    raw["bot"]["summary_minute"] = bad_minute
+
+    with pytest.raises(ValueError) as exc:
+        config._parse_app_config(raw)
+
+    assert "summary_minute" in str(exc.value)
+
+
+# ---------------------------------------------------------------------------
+# _parse_llm – temperature range validation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad_temp", [-0.1, 2.1, 5.0])
+def test_parse_app_config_temperature_out_of_range_raises(bad_temp: float) -> None:
+    raw = _make_minimal_raw()
+    raw["llm"]["temperature"] = bad_temp
+
+    with pytest.raises(ValueError) as exc:
+        config._parse_app_config(raw)
+
+    assert "temperature" in str(exc.value)
+
+
+# ---------------------------------------------------------------------------
+# BotConfig.allowed_user_ids – invalid entry warning
+# ---------------------------------------------------------------------------
+
+
+def test_bot_config_allowed_user_ids_skips_invalid_entry_and_emits_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Non-integer, non-@ values in allowed_users must be skipped with a WARNING.
+
+    The cached_property computes lazily on first access; the warning should
+    appear at that point and the invalid token must not appear in the result.
+    """
+    raw = _make_minimal_raw()
+    raw["bot"]["allowed_users"] = "123,notanid,@admin"
+
+    app_cfg = config._parse_app_config(raw)
+
+    with caplog.at_level("WARNING", logger="teledigest"):
+        ids = app_cfg.bot.allowed_user_ids
+
+    assert ids == {123}
+    assert any("notanid" in r.message for r in caplog.records)
