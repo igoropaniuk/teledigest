@@ -516,3 +516,174 @@ def test_get_bot_client_returns_initialized_client(monkeypatch):
     fake_client = MagicMock()
     monkeypatch.setattr(tc, "bot_client", fake_client)
     assert tc.get_bot_client() is fake_client
+
+
+# ---------------------------------------------------------------------------
+# auth_dialog_handler – WAIT_CODE step
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_auth_dialog_handler_code_step_success(monkeypatch, app_config):
+    """Successful sign_in must set user_auth_state=OK and reply with a success message."""
+    app_config.bot.allowed_users_raw = ""
+    monkeypatch.setattr(tc, "user_auth_state", UserAuthState.REQUIRED)
+    dialogs: dict = {
+        456: AuthDialog(
+            step=AuthStep.WAIT_CODE, phone="+1234567890", phone_code_hash="h"
+        )
+    }
+    monkeypatch.setattr(tc, "auth_dialogs", dialogs)
+
+    fake_user_client = AsyncMock()
+    fake_user_client.sign_in = AsyncMock()
+    fake_user_client.get_me = AsyncMock()
+    monkeypatch.setattr(tc, "user_client", fake_user_client)
+    monkeypatch.setattr(tc, "ensure_joined_and_resolve_channels", AsyncMock())
+
+    event = _make_event(raw_text="1 2 3 4 5", chat_id=456)
+    await tc.auth_dialog_handler(event)
+
+    assert 456 not in dialogs
+    assert tc.user_auth_state == UserAuthState.OK
+    event.reply.assert_called_once()
+    assert "successful" in event.reply.call_args[0][0].lower()
+
+
+@pytest.mark.asyncio
+async def test_auth_dialog_handler_code_step_session_password_needed(
+    monkeypatch, app_config
+):
+    """SessionPasswordNeededError must clean up the dialog and inform the user."""
+    app_config.bot.allowed_users_raw = ""
+
+    # Patch the name in the tc module so the except clause catches our fake class.
+    class _FakeSPNError(Exception):
+        pass
+
+    monkeypatch.setattr(tc, "SessionPasswordNeededError", _FakeSPNError)
+
+    dialogs: dict = {
+        456: AuthDialog(
+            step=AuthStep.WAIT_CODE, phone="+1234567890", phone_code_hash="h"
+        )
+    }
+    monkeypatch.setattr(tc, "auth_dialogs", dialogs)
+
+    fake_user_client = AsyncMock()
+    fake_user_client.sign_in = AsyncMock(side_effect=_FakeSPNError())
+    monkeypatch.setattr(tc, "user_client", fake_user_client)
+
+    event = _make_event(raw_text="1 2 3 4 5", chat_id=456)
+    await tc.auth_dialog_handler(event)
+
+    assert 456 not in dialogs
+    event.reply.assert_called_once()
+    reply_text = event.reply.call_args[0][0]
+    assert "password" in reply_text.lower() or "2fa" in reply_text.lower()
+
+
+@pytest.mark.asyncio
+async def test_auth_dialog_handler_code_step_general_error(monkeypatch, app_config):
+    """A generic exception during sign_in must clean up the dialog and report the error."""
+    app_config.bot.allowed_users_raw = ""
+    dialogs: dict = {
+        456: AuthDialog(
+            step=AuthStep.WAIT_CODE, phone="+1234567890", phone_code_hash="h"
+        )
+    }
+    monkeypatch.setattr(tc, "auth_dialogs", dialogs)
+
+    fake_user_client = AsyncMock()
+    fake_user_client.sign_in = AsyncMock(side_effect=Exception("bad code"))
+    monkeypatch.setattr(tc, "user_client", fake_user_client)
+
+    event = _make_event(raw_text="1 2 3 4 5", chat_id=456)
+    await tc.auth_dialog_handler(event)
+
+    assert 456 not in dialogs
+    event.reply.assert_called_once()
+    assert "failed" in event.reply.call_args[0][0].lower()
+
+
+@pytest.mark.asyncio
+async def test_auth_dialog_handler_denied_when_user_not_allowed_in_active_dialog(
+    monkeypatch, app_config
+):
+    """Permission check fires even when a dialog is active; denied users get a rejection."""
+    app_config.bot.allowed_users_raw = "999"  # only user 999 allowed
+    dialogs: dict = {456: AuthDialog(step=AuthStep.WAIT_PHONE)}
+    monkeypatch.setattr(tc, "auth_dialogs", dialogs)
+
+    event = _make_event(raw_text="+1234567890", chat_id=456, sender_id=123)
+    await tc.auth_dialog_handler(event)
+
+    event.reply.assert_called_once()
+    assert "not allowed" in event.reply.call_args[0][0]
+
+
+# ---------------------------------------------------------------------------
+# today_command – summary_brief path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_today_command_with_summary_brief_posts_to_telegraph(
+    monkeypatch, app_config
+):
+    """When summary_brief=True, today_command must call post_to_telegraph and
+    llm_summarize_brief, then send a message containing the brief text and the
+    Telegraph URL."""
+    app_config.bot.allowed_users_raw = ""
+    app_config.bot.summary_brief = True
+    event = _make_event()
+
+    messages = [Message(channel="@c1", text="war update")]
+    monkeypatch.setattr(
+        tc, "get_relevant_messages_last_24h", lambda max_docs=200: messages
+    )
+    monkeypatch.setattr(tc, "llm_summarize", lambda day, msgs: "Full digest")
+    monkeypatch.setattr(
+        tc, "post_to_telegraph", lambda title, html: "https://telegra.ph/test-01-01"
+    )
+    monkeypatch.setattr(tc, "llm_summarize_brief", lambda day, digest: "Brief!")
+
+    reply_long_mock = AsyncMock()
+    monkeypatch.setattr(tc, "reply_long", reply_long_mock)
+
+    await tc.today_command(event)
+
+    reply_long_mock.assert_called_once()
+    outgoing = reply_long_mock.call_args[0][1]
+    assert "Brief!" in outgoing
+    assert "telegra.ph" in outgoing
+
+
+# ---------------------------------------------------------------------------
+# status_command – prompt_chars line
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_status_command_includes_prompt_chars_when_relevant_messages_present(
+    monkeypatch, app_config
+):
+    """When relevant messages exist the status reply must include a 'prompt size' line."""
+    app_config.bot.allowed_users_raw = ""
+    event = _make_event()
+
+    relevant = [Message(channel="@c1", text="war news")]
+    monkeypatch.setattr(
+        tc, "get_relevant_messages_last_24h", lambda max_docs=200: relevant
+    )
+    monkeypatch.setattr(tc, "get_messages_last_24h", lambda: relevant)
+    # build_prompt returns a known user-prompt so we can predict prompt_chars
+    monkeypatch.setattr(tc, "build_prompt", lambda day, msgs: ("sys", "user-content"))
+
+    reply_long_mock = AsyncMock()
+    monkeypatch.setattr(tc, "reply_long", reply_long_mock)
+
+    await tc.status_command(event)
+
+    reply_text = reply_long_mock.call_args[0][1]
+    assert "<b>Current prompt size:</b> <code>12</code> chars" in reply_text
