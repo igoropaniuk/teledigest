@@ -6,8 +6,9 @@ import sys
 import traceback
 from pathlib import Path
 
-from .config import init_config, log
+from .config import init_config, get_config, log
 from .db import init_db
+from .sources_db import init_sources_table, migrate_from_config
 from .scheduler import summary_scheduler
 from .telegram_client import (
     create_clients,
@@ -50,6 +51,17 @@ async def _run(config_path: Path | None, auth_only: bool) -> None:
     if not auth_only:
         # The message handler writes to SQLite; initialize DB before clients can receive updates.
         init_db()
+        init_sources_table()
+        # Migrate channels from config to sources table (one-time, skips existing)
+        cfg = get_config()
+        if hasattr(cfg, "sources") and cfg.sources and cfg.sources.channels:
+            channels = [
+                {"url": ch.url, "country": ch.country, "name": ch.name, "language": ch.language}
+                for ch in cfg.sources.channels
+            ]
+            digest_targets = cfg.sources.digest_targets if cfg.sources.digest_targets else {}
+            migrate_from_config(channels, digest_targets)
+
 
     await create_clients()
     await start_clients(auth_only=auth_only)

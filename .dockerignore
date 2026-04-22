@@ -13,4 +13,4 @@ data/
 tests/
 qa_*.txt
 start.bat
-*.md
+CLAUDE.md

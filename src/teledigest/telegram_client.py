@@ -20,6 +20,14 @@ from .llm import build_prompt, llm_summarize, llm_summarize_brief
 from .message_utils import reply_long
 from .telegraph import post_to_telegraph
 from .knowledge_search import is_brain_query, search_and_format
+from .sources_db import (
+    init_sources_table, migrate_from_config, get_active_sources,
+    get_active_countries, get_digest_target,
+)
+from .bot_menu import (
+    handle_callback, handle_text_in_conversation, get_conv,
+    main_menu_keyboard,
+)
 
 user_client: TelegramClient | None = None
 bot_client: TelegramClient | None = None
@@ -85,6 +93,7 @@ SUPPORTED_COMMANDS: dict[str, str] = {
     "extract <country>": "Run Q&A extraction for a country (e.g. extract br)",
     "cleanup": "Delete bot messages from DB + clear knowledge for re-extraction",
     "loadkb": "Load unified_claims.jsonl into knowledge table",
+    "/menu": "Open interactive menu with buttons",
 }
 
 # Track running backfill tasks to prevent duplicates
@@ -614,10 +623,15 @@ async def ensure_joined_and_resolve_channels():
     cfg = get_config()
 
     # --- 1. Resolve SOURCE channels via user_client (for scraping) ---
+    # Merge channels from config + sources DB (dynamic)
     all_channels: list[str] = list(cfg.bot.channels)
     for src_ch in cfg.sources.channels:
         if src_ch.url not in all_channels:
             all_channels.append(src_ch.url)
+    # Add channels from DB (added via /menu → add country)
+    for src in get_active_sources():
+        if src["url"] not in all_channels:
+            all_channels.append(src["url"])
 
     for ch in all_channels:
         try:
@@ -649,6 +663,11 @@ async def ensure_joined_and_resolve_channels():
     from telethon.tl.functions.channels import GetFullChannelRequest
 
     targets_to_resolve = dict(cfg.sources.digest_targets)
+    # Add digest targets from DB
+    for code in get_active_countries():
+        dt_target = get_digest_target(code)
+        if dt_target and code not in targets_to_resolve:
+            targets_to_resolve[code] = dt_target
     if not targets_to_resolve and cfg.bot.summary_target:
         targets_to_resolve["default"] = cfg.bot.summary_target
 
@@ -752,6 +771,32 @@ def _session_paths(cfg: AppConfig) -> tuple[Path, Path]:
     return user_session, bot_session
 
 
+# ---------------------------------------------------------------------------
+# Menu & conversation handlers
+# ---------------------------------------------------------------------------
+
+async def menu_command(event):
+    """Handle /menu — show interactive keyboard."""
+    if not await is_user_allowed(event):
+        return
+    await event.reply("Главное меню:", buttons=main_menu_keyboard())
+
+
+async def menu_callback_handler(event):
+    """Handle inline button presses."""
+    await handle_callback(event)
+
+
+async def conversation_text_handler(event):
+    """Intercept text during multi-step dialogs (add country/channel flow)."""
+    if not await is_user_allowed(event):
+        return
+    # Only intercept if user is in an active conversation
+    consumed = await handle_text_in_conversation(event)
+    if consumed:
+        raise events.StopPropagation
+
+
 async def create_clients():
     global user_client, bot_client
 
@@ -811,7 +856,15 @@ async def create_clients():
     bot_client.add_event_handler(
         loadkb_command, events.NewMessage(pattern=r"^loadkb")
     )
+    bot_client.add_event_handler(
+        menu_command, events.NewMessage(pattern=r"^/menu$")
+    )
+    bot_client.add_event_handler(
+        menu_callback_handler, events.CallbackQuery()
+    )
     bot_client.add_event_handler(auth_dialog_handler, events.NewMessage)
+    # Conversation handler must be before МОЗГ to intercept dialog steps
+    bot_client.add_event_handler(conversation_text_handler, events.NewMessage)
     # МОЗГ handler on bot_client — reacts in group chats
     bot_client.add_event_handler(brain_message_handler, events.NewMessage)
 
